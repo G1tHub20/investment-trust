@@ -1,0 +1,16 @@
+{
+    "name": "investment-trust/nikkei-monitor",
+    "description": "日経平均株価監視通知システム",
+    "type": "project",
+    "require": {
+        "php": ">=7.4",
+        "google/apiclient": "^2.15"
+    },
+    "autoload": {
+        "classmap": [
+            "scraper.php",
+            "gmail_api.php"
+        ]
+    }
+}
+

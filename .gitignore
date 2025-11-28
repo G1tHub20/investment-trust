@@ -1,0 +1,35 @@
+# Composer
+/vendor/
+composer.phar
+
+# Gmail API認証情報（機密情報）
+credentials.json
+token.json
+
+# 環境変数ファイル（機密情報）
+.env
+
+# ログファイル
+*.log
+logs/
+
+# デバッグファイル
+debug_*.html
+
+# OS生成ファイル
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE設定
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# 一時ファイル
+*.tmp
+*.bak
+*.swp
+*~
+

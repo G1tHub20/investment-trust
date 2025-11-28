@@ -1,142 +1,322 @@
+<?php
+/**
+ * 日経平均監視システム Web UI
+ */
+
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/scraper.php';
+
+// セッション開始
+session_start();
+
+// メッセージ処理
+$message = '';
+$messageType = '';
+
+if (isset($_SESSION['message'])) {
+    $message = $_SESSION['message'];
+    $messageType = $_SESSION['message_type'];
+    unset($_SESSION['message']);
+    unset($_SESSION['message_type']);
+}
+
+// フォーム送信処理
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    if ($_POST['action'] === 'update_settings') {
+        $basePrice = floatval($_POST['base_price']);
+        $buySignalPrice = floatval($_POST['buy_signal_price']);
+        $sellSignalPrice = floatval($_POST['sell_signal_price']);
+        $emailAddress = trim($_POST['email_address']);
+        
+        // バリデーション
+        if ($basePrice <= 0 || $buySignalPrice <= 0 || $sellSignalPrice <= 0) {
+            $message = '価格は0より大きい値を入力してください。';
+            $messageType = 'error';
+        } elseif (!filter_var($emailAddress, FILTER_VALIDATE_EMAIL)) {
+            $message = '有効なメールアドレスを入力してください。';
+            $messageType = 'error';
+        } elseif ($buySignalPrice >= $basePrice) {
+            $message = '買いシグナル価格は基準価格より低く設定してください。';
+            $messageType = 'error';
+        } elseif ($sellSignalPrice <= $basePrice) {
+            $message = '売りシグナル価格は基準価格より高く設定してください。';
+            $messageType = 'error';
+        } else {
+            if (updateSettings($basePrice, $buySignalPrice, $sellSignalPrice, $emailAddress)) {
+                $message = '設定を更新しました。';
+                $messageType = 'success';
+            } else {
+                $message = '設定の更新に失敗しました。';
+                $messageType = 'error';
+            }
+        }
+    }
+}
+
+// 現在の設定を取得
+$settings = getSettings();
+if (!$settings) {
+    // デフォルト設定
+    $settings = [
+        'base_price' => 50000.00,
+        'buy_signal_price' => 49000.00,
+        'sell_signal_price' => 52000.00,
+        'email_address' => ''
+    ];
+}
+
+// 現在の株価を取得（エラーハンドリング付き）
+$currentPriceData = null;
+try {
+    $scraper = new NikkeiScraper();
+    $currentPriceData = $scraper->getCurrentPrice();
+} catch (Exception $e) {
+    error_log('Price fetch error: ' . $e->getMessage());
+}
+
+// 価格履歴を取得
+$priceHistory = getRecentPriceHistory(14);
+
+// 通知履歴を取得
+$notifications = getRecentNotifications(10);
+?>
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link href="css/style.css" rel="stylesheet">
-<title>日経平均 リアルタイム</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日経平均監視システム</title>
+    <link href="css/style.css" rel="stylesheet">
 </head>
 <body>
-<a href="http://morismo.php.xdomain.jp/scraping/index3.php">>>SP500</a>
+    <div class="container">
+        <header class="header">
+            <h1>📈 日経平均監視システム</h1>
+            <p class="subtitle">自動売買シグナル通知</p>
+        </header>
 
-<?php
-$url = "https://nikkei225jp.com/chart/"; // 日経平均 リアルタイム チャート
-$url2 = "https://kabutan.jp/stock/kabuka?code=0000&ashi=day"; // Kabutan
+        <?php if ($message): ?>
+        <div class="message <?php echo htmlspecialchars($messageType); ?>">
+            <?php echo htmlspecialchars($message); ?>
+        </div>
+        <?php endif; ?>
 
-// cURLセッションを初期化
-$ch = curl_init();
-$ch2 = curl_init();
+        <!-- 現在の株価表示 -->
+        <section class="card">
+            <h2>📊 現在の日経平均株価</h2>
+            <?php if ($currentPriceData && isset($currentPriceData['price'])): ?>
+                <div class="current-price">
+                    <div class="price-value">¥<?php echo number_format($currentPriceData['price'], 2); ?></div>
+                    <?php if ($currentPriceData['change'] !== null): ?>
+                        <div class="price-change <?php echo $currentPriceData['change'] >= 0 ? 'positive' : 'negative'; ?>">
+                            <?php echo $currentPriceData['change'] >= 0 ? '+' : ''; ?>
+                            <?php echo number_format($currentPriceData['change'], 2); ?>
+                            <?php if ($currentPriceData['change_percent'] !== null): ?>
+                                (<?php echo number_format($currentPriceData['change_percent'], 2); ?>%)
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+                    <div class="price-time">取得時刻: <?php echo date('Y年m月d日 H:i:s'); ?></div>
+                </div>
+                
+                <!-- シグナル状態表示 -->
+                <div class="signal-status">
+                    <?php
+                    $currentPrice = $currentPriceData['price'];
+                    if ($currentPrice < $settings['buy_signal_price']):
+                    ?>
+                        <div class="signal-alert buy">
+                            🔔 買いシグナル発生中！
+                        </div>
+                    <?php elseif ($currentPrice > $settings['sell_signal_price']): ?>
+                        <div class="signal-alert sell">
+                            🔔 売りシグナル発生中！
+                        </div>
+                    <?php else: ?>
+                        <div class="signal-alert normal">
+                            ✅ 正常範囲内（シグナルなし）
+                        </div>
+                    <?php endif; ?>
+                </div>
+            <?php else: ?>
+                <div class="error-message">
+                    株価の取得に失敗しました。しばらくしてから再度お試しください。
+                </div>
+            <?php endif; ?>
+        </section>
 
-// curlオプションを設定する
-curl_setopt($ch, CURLOPT_URL, $url);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);// curl_exec()の戻り値を文字列にする
+        <!-- 設定フォーム -->
+        <section class="card">
+            <h2>⚙️ 監視設定</h2>
+            <form method="POST" action="" class="settings-form">
+                <input type="hidden" name="action" value="update_settings">
+                
+                <div class="form-group">
+                    <label for="base_price">基準価格 (円)</label>
+                    <input type="number" id="base_price" name="base_price" 
+                           value="<?php echo number_format($settings['base_price'], 0, '', ''); ?>" 
+                           step="1" required>
+                    <small>基準となる価格を設定します</small>
+                </div>
 
-curl_setopt($ch2, CURLOPT_URL, $url2);
-curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);// curl_exec()の戻り値を文字列にする
+                <div class="form-group">
+                    <label for="buy_signal_price">買いシグナル価格 (円)</label>
+                    <input type="number" id="buy_signal_price" name="buy_signal_price" 
+                           value="<?php echo number_format($settings['buy_signal_price'], 0, '', ''); ?>" 
+                           step="1" required>
+                    <small>この価格を下回ったら買いシグナルを通知</small>
+                </div>
 
-// URLの情報を取得して$htmlに保存
-$html = curl_exec($ch);
-$html = mb_convert_encoding($html, 'HTML-ENTITIES', "UTF-8"); // 文字エンコード変換
+                <div class="form-group">
+                    <label for="sell_signal_price">売りシグナル価格 (円)</label>
+                    <input type="number" id="sell_signal_price" name="sell_signal_price" 
+                           value="<?php echo number_format($settings['sell_signal_price'], 0, '', ''); ?>" 
+                           step="1" required>
+                    <small>この価格を上回ったら売りシグナルを通知</small>
+                </div>
 
-$html2 = curl_exec($ch2);
-$html2 = mb_convert_encoding($html2, 'HTML-ENTITIES', "UTF-8"); // 文字エンコード変換
+                <div class="form-group">
+                    <label for="email_address">通知先メールアドレス</label>
+                    <input type="email" id="email_address" name="email_address" 
+                           value="<?php echo htmlspecialchars($settings['email_address']); ?>" 
+                           required>
+                    <small>シグナル発生時の通知先</small>
+                </div>
 
-// セッションを終了
-curl_close($ch);
-curl_close($ch2);
+                <button type="submit" class="btn btn-primary">設定を保存</button>
+            </form>
 
-// ■必要なデータをDOMやXPathで抽出
-$dom = new DOMDocument;
-@$dom->loadHTML($html);
-$xpath = new DOMXPath($dom);
-$if_box2 = $xpath->query('//div[@class="if_box2"]');
+            <div class="info-box">
+                <h3>💡 設定のヒント</h3>
+                <ul>
+                    <li>基準価格: 現在の市場価格を参考に設定</li>
+                    <li>買いシグナル: 基準価格より低く設定（例: -1,000円）</li>
+                    <li>売りシグナル: 基準価格より高く設定（例: +2,000円）</li>
+                    <li>通知は1日2回のチェック時に送信されます</li>
+                </ul>
+            </div>
+        </section>
 
-$dom2 = new DOMDocument;
-@$dom2->loadHTML($html2);
-$xpath2 = new DOMXPath($dom2);
+        <!-- 通知履歴 -->
+        <section class="card">
+            <h2>📧 通知履歴</h2>
+            <?php if (count($notifications) > 0): ?>
+                <div class="table-responsive">
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>日時</th>
+                                <th>シグナル</th>
+                                <th>株価</th>
+                                <th>トリガー価格</th>
+                                <th>状態</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($notifications as $notification): ?>
+                            <tr>
+                                <td><?php echo date('Y/m/d H:i', strtotime($notification['notified_at'])); ?></td>
+                                <td>
+                                    <span class="badge <?php echo $notification['signal_type']; ?>">
+                                        <?php echo $notification['signal_type'] === 'buy' ? '買い' : '売り'; ?>
+                                    </span>
+                                </td>
+                                <td>¥<?php echo number_format($notification['current_price'], 2); ?></td>
+                                <td>¥<?php echo number_format($notification['trigger_price'], 2); ?></td>
+                                <td>
+                                    <?php if ($notification['email_sent']): ?>
+                                        <span class="status-success">✅ 送信済</span>
+                                    <?php else: ?>
+                                        <span class="status-error">❌ 失敗</span>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php else: ?>
+                <p class="no-data">通知履歴はまだありません。</p>
+            <?php endif; ?>
+        </section>
 
-// 日時表示
-$wtime = $dom->getElementById("wtime");
-$time = $wtime->nodeValue;
-$result = explode('■',$time);
-echo "<h6>";
-echo($result[0] . "■" . $result[1] . "■" . $result[3]); 
-echo "</h6>";
+        <!-- 価格履歴 -->
+        <section class="card">
+            <h2>📈 価格履歴（直近14日）</h2>
+            <?php if (count($priceHistory) > 0): ?>
+                <div class="table-responsive">
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>日時</th>
+                                <th>株価</th>
+                                <th>前日比</th>
+                                <th>変動率</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($priceHistory as $history): ?>
+                            <tr>
+                                <td><?php echo date('Y/m/d H:i', strtotime($history['checked_at'])); ?></td>
+                                <td>¥<?php echo number_format($history['price'], 2); ?></td>
+                                <td class="<?php echo $history['price_change'] >= 0 ? 'positive' : 'negative'; ?>">
+                                    <?php if ($history['price_change'] !== null): ?>
+                                        <?php echo $history['price_change'] >= 0 ? '+' : ''; ?>
+                                        <?php echo number_format($history['price_change'], 2); ?>
+                                    <?php else: ?>
+                                        -
+                                    <?php endif; ?>
+                                </td>
+                                <td class="<?php echo $history['price_change_percent'] >= 0 ? 'positive' : 'negative'; ?>">
+                                    <?php if ($history['price_change_percent'] !== null): ?>
+                                        <?php echo $history['price_change_percent'] >= 0 ? '+' : ''; ?>
+                                        <?php echo number_format($history['price_change_percent'], 2); ?>%
+                                    <?php else: ?>
+                                        -
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php else: ?>
+                <p class="no-data">価格履歴はまだありません。</p>
+            <?php endif; ?>
+        </section>
 
-// 日経平均株価
-$nikkei = $if_box2->item(0)->childNodes;
-echo "<p><b>日経平均株価</b>";
-echo "<br>￥";
-echo $nikkei[0]->nodeValue;
-echo "<br>";
-$test = (float)rtrim($nikkei[1]->nodeValue, "%");
-if($test < 0) {
-    echo "<span style='color:#f00;'>";
-} else {
-    echo "<span style='color:#00f;'>";
-}
-echo $nikkei[1]->nodeValue;
-echo "</span></p>";
+        <!-- システム情報 -->
+        <section class="card">
+            <h2>🔧 システム情報</h2>
+            <div class="system-info">
+                <div class="info-item">
+                    <strong>監視URL:</strong>
+                    <a href="https://jp.investing.com/indices/japan-ni225" target="_blank" rel="noopener">
+                        Investing.com - 日経平均
+                    </a>
+                </div>
+                <div class="info-item">
+                    <strong>チェック頻度:</strong> 1日2回（cronで自動実行）
+                </div>
+                <div class="info-item">
+                    <strong>Gmail API認証:</strong>
+                    <?php if (file_exists(__DIR__ . '/token.json')): ?>
+                        <span class="status-success">✅ 認証済み</span>
+                    <?php else: ?>
+                        <span class="status-error">❌ 未認証</span>
+                        <a href="authenticate.php" class="btn btn-small">認証する</a>
+                    <?php endif; ?>
+                </div>
+                <div class="info-item">
+                    <strong>手動チェック:</strong>
+                    <a href="check_price.php" class="btn btn-small" target="_blank">今すぐチェック</a>
+                </div>
+            </div>
+        </section>
 
-// ダウ平均株価
-$dow = $if_box2->item(1)->childNodes;
-echo "<p><b>ダウ平均株価</b><br>￥";
-echo $dow[0]->nodeValue;
-echo "<br>";
-echo $dow[1]->nodeValue;
-echo "</p>";
-
-// 為替 ドル円
-// $kawase = $if_box2->item(2)->childNodes;
-// echo "<p><b>為替 ドル円</b><br>￥";
-// echo $kawase[0]->nodeValue;
-// echo "<br>";
-// echo $kawase[1]->nodeValue;
-// echo "</p>";
-?>
-
-
-<!-- 時系列データ ==================== -->
-<p><b>時系列株価（終値）</b></p>
-<table>
-
-<?php
-
-$before = $xpath2->query('//table[@class="stock_kabuka_dwm"]/tbody/tr');
-// print_r($before);
-
-foreach ($before as $tr) {
-	$box[] = $tr->nodeValue; // 日にちごと配列に // オブジェクトに配列の指定をしたら怒られる
-}
-
-$yesterday = $box[0];
-
-$sum = 0;
-$average = 0;
-$numeral = 0;
-
-function arrange($when){
-    echo "<tr>";
-    echo "<td>", substr($when, 0, 10), "&nbsp;</td>"; //日付部
-    echo "<td>￥", substr($when, 43, 6), "</td>"; //終値部
-    echo "</tr>";
-    $substr = substr($when, 10, 6);
-    
-    // echo $substr, "\n";
-
-    $numeral = (int)$substr;
-
-    // echo $numeral;
-    return $numeral;
-}
-
-for ($i = 0; $i <= 13; $i++) { //2週間分
-    arrange($box[$i]);
-    // $sum = $numeral++;
-}
-
-// 参考URL
-// https://ai-inter1.com/xpath/
-
-?>
-</table>
-
-<br>
-<footer>
-引用元:<br>
-<a href="https://nikkei225jp.com/chart/" target="_blank" rel="noopener noreferrer">日経平均 リアルタイム チャート</a>、
-<a href="https://kabutan.jp/stock/kabuka?code=0000&ashi=day" target="_blank" rel="noopener noreferrer">Kabutan</a>
-</footer>
-
+        <footer class="footer">
+            <p>&copy; 2025 日経平均監視システム | データ提供: Investing.com</p>
+        </footer>
+    </div>
 </body>
 </html>
