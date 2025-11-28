@@ -5,20 +5,34 @@
 
 class NikkeiScraper {
     private $url = 'https://jp.investing.com/indices/japan-ni225';
+    private $historicalUrl = 'https://jp.investing.com/indices/japan-ni225-historical-data';
     private $userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
     
     /**
      * 日経平均株価を取得
-     * @return array ['price' => float, 'change' => float, 'change_percent' => float] or null
+     * @return array ['price' => float, 'close' => float, 'open' => float, 'high' => float, 'low' => float, 'change' => float, 'change_percent' => float] or null
      */
     public function getCurrentPrice() {
         try {
-            $html = $this->fetchPage();
+            // 現在価格ページから価格と変動を取得
+            $html = $this->fetchPage($this->url);
             if (!$html) {
                 throw new Exception('ページの取得に失敗しました');
             }
+            $currentData = $this->parsePrice($html);
             
-            return $this->parsePrice($html);
+            // 履歴データページから最新のOHLCを取得
+            $historicalHtml = $this->fetchPage($this->historicalUrl);
+            if ($historicalHtml) {
+                $ohlcData = $this->parseHistoricalData($historicalHtml);
+                if ($ohlcData) {
+                    // OHLCデータと現在価格をマージ
+                    return array_merge($currentData, $ohlcData);
+                }
+            }
+            
+            // OHLCが取得できない場合は現在価格を使用
+            return $currentData;
         } catch (Exception $e) {
             error_log('Scraping error: ' . $e->getMessage());
             return null;
@@ -27,13 +41,14 @@ class NikkeiScraper {
     
     /**
      * ページを取得
+     * @param string $url
      * @return string|false
      */
-    private function fetchPage() {
+    private function fetchPage($url) {
         $ch = curl_init();
         
         curl_setopt_array($ch, [
-            CURLOPT_URL => $this->url,
+            CURLOPT_URL => $url,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_MAXREDIRS => 5,
@@ -86,8 +101,12 @@ class NikkeiScraper {
         // 変動率を取得
         $changePercent = $this->extractChangePercent($xpath);
         
+        // 基本データを返す（OHLCは履歴データから取得）
         return [
-            'price' => $price,
+            'close' => $price,      // 終値（履歴データで上書きされる可能性あり）
+            'open' => $price,       // 始値（履歴データで上書きされる可能性あり）
+            'high' => $price,       // 高値（履歴データで上書きされる可能性あり）
+            'low' => $price,        // 低値（履歴データで上書きされる可能性あり）
             'change' => $change,
             'change_percent' => $changePercent
         ];
@@ -174,11 +193,68 @@ class NikkeiScraper {
     }
     
     /**
+     * 履歴データページから最新のOHLCを取得
+     * @param string $html
+     * @return array|null
+     */
+    private function parseHistoricalData($html) {
+        try {
+            $dom = new DOMDocument();
+            libxml_use_internal_errors(true);
+            $dom->loadHTML($html);
+            libxml_clear_errors();
+            $xpath = new DOMXPath($dom);
+            
+            // 履歴データテーブルの最初の行（最新データ）を取得
+            // Investing.comの履歴データテーブルを探す
+            $rows = $xpath->query("//table[@data-test='historical-data-table']//tbody/tr[1]");
+            
+            if ($rows->length === 0) {
+                // 別のパターン: クラス名を使用
+                $rows = $xpath->query("//table[contains(@class, 'freeze-column-w-1')]//tbody/tr[1]");
+            }
+            
+            if ($rows->length === 0) {
+                // より広範囲な検索
+                $rows = $xpath->query("//table[contains(@class, 'historicalTbl')]//tbody/tr[1]");
+            }
+            
+            if ($rows->length > 0) {
+                $row = $rows->item(0);
+                $cells = $xpath->query(".//td", $row);
+                
+                if ($cells->length >= 5) {
+                    // テーブルの列: 日付(0), 終値(1), 始値(2), 高値(3), 安値(4), 出来高(5), 変動率(6)
+                    $close = $this->parseNumber($cells->item(1)->nodeValue);
+                    $open = $this->parseNumber($cells->item(2)->nodeValue);
+                    $high = $this->parseNumber($cells->item(3)->nodeValue);
+                    $low = $this->parseNumber($cells->item(4)->nodeValue);
+                    
+                    // 値が妥当かチェック（日経平均は通常10,000〜100,000の範囲）
+                    if ($close !== null && $close > 1000 && $close < 100000) {
+                        return [
+                            'close' => $close,
+                            'open' => $open ?? $close,
+                            'high' => $high ?? $close,
+                            'low' => $low ?? $close
+                        ];
+                    }
+                }
+            }
+            
+            return null;
+        } catch (Exception $e) {
+            error_log('Historical data parsing error: ' . $e->getMessage());
+            return null;
+        }
+    }
+    
+    /**
      * デバッグ用：HTMLを保存
      * @param string $html
      */
-    public function saveDebugHtml($html) {
-        file_put_contents('debug_investing.html', $html);
+    public function saveDebugHtml($html, $filename = 'debug_investing.html') {
+        file_put_contents($filename, $html);
     }
 }
 
@@ -191,7 +267,10 @@ if (php_sapi_name() === 'cli' && basename(__FILE__) === basename($_SERVER['PHP_S
     $result = $scraper->getCurrentPrice();
     
     if ($result) {
-        echo "価格: ¥" . number_format($result['price'], 2) . "\n";
+        echo "終値: ¥" . number_format($result['close'], 2) . "\n";
+        echo "始値: ¥" . number_format($result['open'], 2) . "\n";
+        echo "高値: ¥" . number_format($result['high'], 2) . "\n";
+        echo "低値: ¥" . number_format($result['low'], 2) . "\n";
         echo "変動: " . ($result['change'] !== null ? number_format($result['change'], 2) : 'N/A') . "\n";
         echo "変動率: " . ($result['change_percent'] !== null ? $result['change_percent'] . '%' : 'N/A') . "\n";
     } else {

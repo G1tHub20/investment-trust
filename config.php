@@ -85,24 +85,65 @@ function updateSettings($basePrice, $buySignalPrice, $sellSignalPrice, $emailAdd
 }
 
 /**
- * 価格履歴を保存
- * @param float $price
- * @param float|null $priceChange
- * @param float|null $priceChangePercent
+ * 価格履歴を保存（同日の場合は更新、異なる日の場合は挿入）
+ * @param float $close 終値
+ * @param float|null $open 始値
+ * @param float|null $high 高値
+ * @param float|null $low 低値
+ * @param float|null $priceChangeRate 変動率
  * @return bool
  */
-function savePriceHistory($price, $priceChange = null, $priceChangePercent = null) {
+function savePriceHistory($close, $open = null, $high = null, $low = null, $priceChangeRate = null) {
     $pdo = getDbConnection();
-    $stmt = $pdo->prepare('
-        INSERT INTO price_history (price, price_change, price_change_percent)
-        VALUES (:price, :price_change, :price_change_percent)
-    ');
     
-    return $stmt->execute([
-        ':price' => $price,
-        ':price_change' => $priceChange,
-        ':price_change_percent' => $priceChangePercent
-    ]);
+    // 今日の日付（日本時間）
+    $today = date('Y-m-d');
+    
+    // 今日のレコードが既に存在するかチェック
+    $checkStmt = $pdo->prepare('
+        SELECT id FROM price_history 
+        WHERE DATE(created_at) = :today
+        LIMIT 1
+    ');
+    $checkStmt->execute([':today' => $today]);
+    $existingRecord = $checkStmt->fetch();
+    
+    if ($existingRecord) {
+        // 既存レコードを更新
+        $stmt = $pdo->prepare('
+            UPDATE price_history 
+            SET close = :close,
+                open = :open,
+                high = :high,
+                low = :low,
+                price_change_rate = :price_change_rate,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE DATE(created_at) = :today
+        ');
+        
+        return $stmt->execute([
+            ':close' => $close,
+            ':open' => $open,
+            ':high' => $high,
+            ':low' => $low,
+            ':price_change_rate' => $priceChangeRate,
+            ':today' => $today
+        ]);
+    } else {
+        // 新規レコードを挿入
+        $stmt = $pdo->prepare('
+            INSERT INTO price_history (close, open, high, low, price_change_rate)
+            VALUES (:close, :open, :high, :low, :price_change_rate)
+        ');
+        
+        return $stmt->execute([
+            ':close' => $close,
+            ':open' => $open,
+            ':high' => $high,
+            ':low' => $low,
+            ':price_change_rate' => $priceChangeRate
+        ]);
+    }
 }
 
 /**
@@ -137,10 +178,33 @@ function saveNotification($signalType, $currentPrice, $triggerPrice, $emailSent,
  */
 function getRecentPriceHistory($limit = 30) {
     $pdo = getDbConnection();
-    $stmt = $pdo->prepare('SELECT * FROM price_history ORDER BY created_at DESC LIMIT :limit');
+    $stmt = $pdo->prepare('
+        SELECT id, close, open, high, low, price_change_rate, 
+               updated_at as checked_at, created_at
+        FROM price_history 
+        ORDER BY created_at DESC 
+        LIMIT :limit
+    ');
     $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
     $stmt->execute();
     return $stmt->fetchAll();
+}
+
+/**
+ * 前日の終値を取得（保存前に呼び出すこと）
+ * @return float|null
+ */
+function getYesterdayClose() {
+    $pdo = getDbConnection();
+    // 最新のレコード（前日のデータ）を取得
+    $stmt = $pdo->query('
+        SELECT close 
+        FROM price_history 
+        ORDER BY created_at DESC 
+        LIMIT 1
+    ');
+    $result = $stmt->fetch();
+    return $result ? $result['close'] : null;
 }
 
 /**

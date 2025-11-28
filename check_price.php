@@ -37,21 +37,42 @@ function main() {
         $scraper = new NikkeiScraper();
         $priceData = $scraper->getCurrentPrice();
         
-        if (!$priceData || !isset($priceData['price'])) {
+        if (!$priceData || !isset($priceData['close'])) {
             logMessage("エラー: 株価の取得に失敗しました");
             return false;
         }
         
-        $currentPrice = $priceData['price'];
-        logMessage("現在価格: ¥" . number_format($currentPrice, 2));
+        $currentClose = $priceData['close'];
+        $currentPrice = $currentClose; // 互換性のため
+        logMessage("現在終値: ¥" . number_format($currentClose, 2));
         
-        // 価格履歴を保存
-        savePriceHistory(
-            $currentPrice,
-            $priceData['change'],
-            $priceData['change_percent']
+        // 前日の終値を取得（保存する前に取得）
+        $yesterdayClose = getYesterdayClose();
+        
+        // 変動率を計算: (today.close - yesterday.close) / yesterday.close
+        $priceChangeRate = null;
+        if ($yesterdayClose && $yesterdayClose > 0) {
+            $priceChangeRate = ($currentClose - $yesterdayClose) / $yesterdayClose;
+            logMessage("前日終値: ¥" . number_format($yesterdayClose, 2));
+            logMessage("変動率: " . number_format($priceChangeRate * 100, 2) . "%");
+        } else {
+            logMessage("前日の終値が見つかりません。初回実行の可能性があります。");
+        }
+        
+        // 価格履歴を保存（同日の場合は更新）
+        $saved = savePriceHistory(
+            $priceData['close'],
+            $priceData['open'],
+            $priceData['high'],
+            $priceData['low'],
+            $priceChangeRate
         );
-        logMessage("価格履歴を保存しました");
+        
+        if ($saved) {
+            logMessage("価格履歴を保存しました（同日の場合は更新）");
+        } else {
+            logMessage("エラー: 価格履歴の保存に失敗しました");
+        }
         
         // シグナル判定
         $signalTriggered = false;

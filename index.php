@@ -104,9 +104,9 @@ $notifications = getRecentNotifications(10);
         <!-- 現在の株価表示 -->
         <section class="card">
             <h2>📊 現在の日経平均株価</h2>
-            <?php if ($currentPriceData && isset($currentPriceData['price'])): ?>
+            <?php if ($currentPriceData && isset($currentPriceData['close'])): ?>
                 <div class="current-price">
-                    <div class="price-value">¥<?php echo number_format($currentPriceData['price'], 2); ?></div>
+                    <div class="price-value">¥<?php echo number_format($currentPriceData['close'], 2); ?></div>
                     <?php if ($currentPriceData['change'] !== null): ?>
                         <div class="price-change <?php echo $currentPriceData['change'] >= 0 ? 'positive' : 'negative'; ?>">
                             <?php echo $currentPriceData['change'] >= 0 ? '+' : ''; ?>
@@ -122,7 +122,7 @@ $notifications = getRecentNotifications(10);
                 <!-- シグナル状態表示 -->
                 <div class="signal-status">
                     <?php
-                    $currentPrice = $currentPriceData['price'];
+                    $currentPrice = $currentPriceData['close'];
                     if ($currentPrice < $settings['buy_signal_price']):
                     ?>
                         <div class="signal-alert buy">
@@ -258,19 +258,22 @@ $notifications = getRecentNotifications(10);
                             <?php foreach ($priceHistory as $history): ?>
                             <tr>
                                 <td><?php echo date('Y/m/d H:i', strtotime($history['checked_at'])); ?></td>
-                                <td>¥<?php echo number_format($history['price'], 2); ?></td>
-                                <td class="<?php echo $history['price_change'] >= 0 ? 'positive' : 'negative'; ?>">
-                                    <?php if ($history['price_change'] !== null): ?>
-                                        <?php echo $history['price_change'] >= 0 ? '+' : ''; ?>
-                                        <?php echo number_format($history['price_change'], 2); ?>
+                                <td>¥<?php echo number_format($history['close'], 2); ?></td>
+                                <td class="<?php echo ($history['close'] - ($history['open'] ?? $history['close'])) >= 0 ? 'positive' : 'negative'; ?>">
+                                    <?php 
+                                    $change = $history['close'] - ($history['open'] ?? $history['close']);
+                                    if ($change != 0): 
+                                    ?>
+                                        <?php echo $change >= 0 ? '+' : ''; ?>
+                                        <?php echo number_format($change, 2); ?>
                                     <?php else: ?>
                                         -
                                     <?php endif; ?>
                                 </td>
-                                <td class="<?php echo $history['price_change_percent'] >= 0 ? 'positive' : 'negative'; ?>">
-                                    <?php if ($history['price_change_percent'] !== null): ?>
-                                        <?php echo $history['price_change_percent'] >= 0 ? '+' : ''; ?>
-                                        <?php echo number_format($history['price_change_percent'], 2); ?>%
+                                <td class="<?php echo ($history['price_change_rate'] ?? 0) >= 0 ? 'positive' : 'negative'; ?>">
+                                    <?php if ($history['price_change_rate'] !== null): ?>
+                                        <?php echo ($history['price_change_rate'] >= 0 ? '+' : ''); ?>
+                                        <?php echo number_format($history['price_change_rate'] * 100, 2); ?>%
                                     <?php else: ?>
                                         -
                                     <?php endif; ?>
