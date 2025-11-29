@@ -12,7 +12,7 @@ token.json
 
 # ログファイル
 *.log
-logs/
+logs/*.log
 
 # デバッグファイル
 debug_*.html
