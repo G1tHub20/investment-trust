@@ -1,13 +1,11 @@
 <?php
-/**
- * データベース接続設定
- */
 
 // .envファイルを読み込み
 require_once __DIR__ . '/load_env.php';
 
 // データベース接続情報（.envから取得）
-define('DB_HOST', env('DB_HOST', '127.0.0.1:3308'));
+define('DB_HOST', env('DB_HOST', '127.0.0.1'));
+define('DB_PORT', env('DB_PORT', '3308'));
 define('DB_NAME', env('DB_NAME', 'investment_trust'));
 define('DB_USER', env('DB_USER', 'root'));
 define('DB_PASS', env('DB_PASS', ''));
@@ -30,7 +28,7 @@ function getDbConnection() {
     
     if ($pdo === null) {
         try {
-            $dsn = 'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=' . DB_CHARSET;
+            $dsn = 'mysql:host=' . DB_HOST . ';port=' . DB_PORT . ';dbname=' . DB_NAME . ';charset=' . DB_CHARSET;
             $options = [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -86,19 +84,19 @@ function updateSettings($basePrice, $buySignalPrice, $sellSignalPrice, $emailAdd
 
 /**
  * 価格履歴を保存（同日の場合は更新、異なる日の場合は挿入）
- * @param float $close 終値
+ * @param string $date 日付（Y-m-d形式）
+ * @param float|null $close 終値
  * @param float|null $open 始値
  * @param float|null $high 高値
  * @param float|null $low 低値
  * @param float|null $priceChangeRate 変動率
- * @param string|null $date 日付（Y-m-d形式、nullの場合は今日の日付）
  * @return bool
  */
-function savePriceHistory($close, $open = null, $high = null, $low = null, $priceChangeRate = null, $date = null) {
+function savePriceHistory($date, $close = null, $open = null, $high = null, $low = null, $priceChangeRate = null) {
     $pdo = getDbConnection();
     
-    // 日付が指定されていない場合は今日の日付を使用
-    $priceDate = $date ?? date('Y-m-d');
+    // 日付を使用
+    $priceDate = $date;
     
     // 指定日のレコードが既に存在するかチェック
     $checkStmt = $pdo->prepare('

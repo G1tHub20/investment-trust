@@ -66,12 +66,12 @@ function main() {
         
         // 価格履歴を保存（同日の場合は更新）
         $saved = savePriceHistory(
+            $priceDate,  // 日付（必須）
             $priceData['close'],
             $priceData['open'],
             $priceData['high'],
             $priceData['low'],
-            $priceChangeRate,
-            $priceDate  // スクレイピングで取得した日付を渡す
+            $priceChangeRate
         );
         
         if ($saved) {

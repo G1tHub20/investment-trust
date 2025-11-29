@@ -8,6 +8,7 @@ token.json
 
 # 環境変数ファイル（機密情報）
 .env
+.env.production
 
 # ログファイル
 *.log

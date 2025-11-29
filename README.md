@@ -44,7 +44,8 @@ cp .env.example .env
 
 ```env
 # データベース接続情報
-DB_HOST=127.0.0.1:3308
+DB_HOST=127.0.0.1
+DB_PORT=3308
 DB_NAME=investment_trust
 DB_USER=root
 DB_PASS=your_password_here
