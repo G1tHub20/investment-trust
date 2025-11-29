@@ -34,3 +34,6 @@ desktop.ini
 *.swp
 *~
 
+# BASIC認証パスワードファイル（機密情報）
+.htpasswd
+

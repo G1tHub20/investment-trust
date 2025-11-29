@@ -1,25 +1,4 @@
-# セキュリティ設定
-
-# config.phpへの直接アクセスを禁止
-<Files "config.php">
-    Order allow,deny
-    Deny from all
-</Files>
-
-# credentials.jsonとtoken.jsonへの直接アクセスを禁止
-<Files "credentials.json">
-    Order allow,deny
-    Deny from all
-</Files>
-
-<Files "token.json">
-    Order allow,deny
-    Deny from all
-</Files>
-
-# database.sqlへの直接アクセスを禁止
-<Files "database.sql">
-    Order allow,deny
-    Deny from all
-</Files>
-
+AuthType Basic
+AuthName "Investment Trust - Restricted Access"
+AuthUserFile "C:\xampp\htdocs\investment-trust\.htpasswd"
+Require valid-user
