@@ -140,11 +140,28 @@ mysql -u root -p -P 3308 investment_trust < database.sql
    - **通知先メールアドレス**: あなたのメールアドレス
 3. 「設定を保存」をクリック
 
-### 8. cronジョブの設定
+### 8. cronジョブの設定（自動実行）
 
-1日2回（例: 9:00と15:00）自動チェックを実行するようにcronを設定します。
+1日2回、平日の10:30と14:30に自動チェックを実行するようにcronを設定します。
 
-#### Linuxの場合
+#### さくらVPS Ubuntu環境（推奨）
+
+**自動セットアップスクリプトを使用する場合:**
+
+```bash
+cd /path/to/investment-trust
+chmod +x setup_cron.sh
+./setup_cron.sh
+```
+
+このスクリプトは以下を自動で行います：
+- PHPパスの検出
+- logsディレクトリの作成
+- cronファイルの生成
+- crontabへの登録
+- 設定内容の確認
+
+**手動で設定する場合:**
 
 ```bash
 crontab -e
@@ -153,21 +170,45 @@ crontab -e
 以下を追加：
 
 ```cron
-# 日経平均監視（平日 9:00と15:00に実行）
-0 9 * * 1-5 /usr/bin/php /path/to/investment-trust/check_price.php >> /path/to/investment-trust/logs/cron.log 2>&1
-0 15 * * 1-5 /usr/bin/php /path/to/investment-trust/check_price.php >> /path/to/investment-trust/logs/cron.log 2>&1
+# 日経平均監視（平日10:30と14:30に実行）
+30 10 * * 1-5 /usr/bin/php /path/to/investment-trust/check_price.php >> /path/to/investment-trust/logs/cron.log 2>&1
+30 14 * * 1-5 /usr/bin/php /path/to/investment-trust/check_price.php >> /path/to/investment-trust/logs/cron.log 2>&1
 ```
+
+**cronの時刻指定について:**
+- `30 10 * * 1-5`: 平日（月〜金）の10:30に実行
+- `30 14 * * 1-5`: 平日（月〜金）の14:30に実行
+- 土日は市場が閉まっているため実行されません
+
+**設定確認:**
+
+```bash
+# crontabの内容を確認
+crontab -l
+
+# ログファイルをリアルタイムで監視
+tail -f /path/to/investment-trust/logs/cron.log
+
+# 手動でテスト実行
+cd /path/to/investment-trust
+php check_price.php
+```
+
+#### その他のLinux環境
+
+上記のさくらVPS Ubuntu環境と同じ手順で設定できます。
 
 #### Windowsの場合（タスクスケジューラ）
 
 1. タスクスケジューラを開く
 2. 「基本タスクの作成」
-3. トリガー: 毎日 9:00と15:00
+3. トリガー: 毎日 10:30と14:30（2つのタスクを作成）
 4. 操作: プログラムの開始
    - プログラム: `C:\xampp\php\php.exe`
    - 引数: `C:\xampp\htdocs\investment-trust\check_price.php`
+5. 条件タブで「タスクを実行するコンピューターがAC電源を使用している場合のみ」のチェックを外す
 
-#### XAMPPの場合
+#### XAMPPの場合（開発環境）
 
 XAMPPコントロールパネルから「Shell」を開き：
 
@@ -199,8 +240,31 @@ http://localhost/investment-trust/check_price.php
 コマンドラインから実行：
 
 ```bash
+cd /path/to/investment-trust
 php check_price.php
 ```
+
+### cronログの確認
+
+自動実行の状況を確認するには：
+
+```bash
+# 最新のログを表示
+tail -n 50 /path/to/investment-trust/logs/cron.log
+
+# リアルタイムでログを監視
+tail -f /path/to/investment-trust/logs/cron.log
+
+# 特定の日付のログを検索
+grep "2025-11-29" /path/to/investment-trust/logs/cron.log
+```
+
+ログには以下の情報が記録されます：
+- 実行日時
+- 取得した株価
+- シグナル判定結果
+- メール送信結果
+- エラーメッセージ（発生時）
 
 ## 🔧 トラブルシューティング
 
@@ -258,12 +322,17 @@ investment-trust/
 ├── gmail_api.php          # Gmail API連携
 ├── authenticate.php       # Gmail API認証画面
 ├── database.sql           # データベース初期化SQL
+├── setup_cron.sh          # cron自動セットアップスクリプト
 ├── composer.json          # Composer設定
 ├── composer.lock          # Composerロックファイル
 ├── credentials.json       # Gmail API認証情報（要配置）
 ├── token.json             # Gmail APIトークン（自動生成）
 ├── .htaccess              # セキュリティ設定
 ├── README.md              # このファイル
+├── cron/
+│   └── schedule.cron      # cronスケジュール設定
+├── logs/
+│   └── cron.log           # cron実行ログ（自動生成）
 ├── css/
 │   └── style.css          # スタイルシート
 └── vendor/                # Composerライブラリ（自動生成）

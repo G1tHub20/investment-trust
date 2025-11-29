@@ -1,0 +1,16 @@
+# 日経平均株価監視システム - Cronスケジュール
+# 平日（月〜金）の10:30と14:30に自動実行
+
+# 環境変数の設定
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# プロジェクトディレクトリ（実際のパスに置き換えてください）
+# PROJECT_DIR=/path/to/investment-trust
+
+# 平日10:30に実行
+30 10 * * 1-5 cd PROJECT_DIR && /usr/bin/php check_price.php >> PROJECT_DIR/logs/cron.log 2>&1
+
+# 平日14:30に実行
+30 14 * * 1-5 cd PROJECT_DIR && /usr/bin/php check_price.php >> PROJECT_DIR/logs/cron.log 2>&1
+
