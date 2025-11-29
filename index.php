@@ -91,7 +91,7 @@ $notifications = getRecentNotifications(10);
 <body>
     <div class="container">
         <header class="header">
-            <h1>📈 日経平均監視システム</h1>
+            <h1>日経平均監視システム</h1>
             <p class="subtitle">自動売買シグナル通知</p>
         </header>
 
@@ -248,28 +248,22 @@ $notifications = getRecentNotifications(10);
                     <table class="history-table">
                         <thead>
                             <tr>
-                                <th>日時</th>
-                                <th>株価</th>
-                                <th>前日比</th>
+                                <th>日付</th>
+                                <th>終値</th>
+                                <th>始値</th>
+                                <th>高値</th>
+                                <th>安値</th>
                                 <th>変動率</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php foreach ($priceHistory as $history): ?>
                             <tr>
-                                <td><?php echo date('Y/m/d H:i', strtotime($history['checked_at'])); ?></td>
+                                <td><?php echo date('Y/m/d', strtotime($history['date'])); ?></td>
                                 <td>¥<?php echo number_format($history['close'], 2); ?></td>
-                                <td class="<?php echo ($history['close'] - ($history['open'] ?? $history['close'])) >= 0 ? 'positive' : 'negative'; ?>">
-                                    <?php 
-                                    $change = $history['close'] - ($history['open'] ?? $history['close']);
-                                    if ($change != 0): 
-                                    ?>
-                                        <?php echo $change >= 0 ? '+' : ''; ?>
-                                        <?php echo number_format($change, 2); ?>
-                                    <?php else: ?>
-                                        -
-                                    <?php endif; ?>
-                                </td>
+                                <td>¥<?php echo number_format($history['open'] ?? 0, 2); ?></td>
+                                <td>¥<?php echo number_format($history['high'] ?? 0, 2); ?></td>
+                                <td>¥<?php echo number_format($history['low'] ?? 0, 2); ?></td>
                                 <td class="<?php echo ($history['price_change_rate'] ?? 0) >= 0 ? 'positive' : 'negative'; ?>">
                                     <?php if ($history['price_change_rate'] !== null): ?>
                                         <?php echo ($history['price_change_rate'] >= 0 ? '+' : ''); ?>

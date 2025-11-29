@@ -225,6 +225,9 @@ class NikkeiScraper {
                 
                 if ($cells->length >= 5) {
                     // テーブルの列: 日付(0), 終値(1), 始値(2), 高値(3), 安値(4), 出来高(5), 変動率(6)
+                    $dateText = trim($cells->item(0)->nodeValue);
+                    $date = $this->parseDate($dateText);
+                    
                     $close = $this->parseNumber($cells->item(1)->nodeValue);
                     $open = $this->parseNumber($cells->item(2)->nodeValue);
                     $high = $this->parseNumber($cells->item(3)->nodeValue);
@@ -233,6 +236,7 @@ class NikkeiScraper {
                     // 値が妥当かチェック（日経平均は通常10,000〜100,000の範囲）
                     if ($close !== null && $close > 1000 && $close < 100000) {
                         return [
+                            'date' => $date,
                             'close' => $close,
                             'open' => $open ?? $close,
                             'high' => $high ?? $close,
@@ -247,6 +251,46 @@ class NikkeiScraper {
             error_log('Historical data parsing error: ' . $e->getMessage());
             return null;
         }
+    }
+    
+    /**
+     * 日付文字列をY-m-d形式に変換
+     * @param string $text
+     * @return string|null
+     */
+    private function parseDate($text) {
+        // Investing.comの日付形式の例:
+        // - "2025年11月28日"
+        // - "2025/11/28"
+        // - "11月28日2025年"
+        
+        // 全角数字を半角に変換
+        $text = mb_convert_kana($text, 'n', 'UTF-8');
+        
+        // パターン1: YYYY年MM月DD日
+        if (preg_match('/(\d{4})年(\d{1,2})月(\d{1,2})日/', $text, $matches)) {
+            return sprintf('%04d-%02d-%02d', $matches[1], $matches[2], $matches[3]);
+        }
+        
+        // パターン2: YYYY/MM/DD または YYYY-MM-DD
+        if (preg_match('/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/', $text, $matches)) {
+            return sprintf('%04d-%02d-%02d', $matches[1], $matches[2], $matches[3]);
+        }
+        
+        // パターン3: MM月DD日YYYY年
+        if (preg_match('/(\d{1,2})月(\d{1,2})日(\d{4})年/', $text, $matches)) {
+            return sprintf('%04d-%02d-%02d', $matches[3], $matches[1], $matches[2]);
+        }
+        
+        // パターン4: strtotime()で解析を試みる
+        $timestamp = strtotime($text);
+        if ($timestamp !== false) {
+            return date('Y-m-d', $timestamp);
+        }
+        
+        // 解析できない場合は今日の日付を返す
+        error_log("Date parsing failed for: {$text}, using today's date");
+        return date('Y-m-d');
     }
     
     /**

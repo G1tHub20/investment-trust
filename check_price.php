@@ -44,7 +44,12 @@ function main() {
         
         $currentClose = $priceData['close'];
         $currentPrice = $currentClose; // 互換性のため
+        $priceDate = $priceData['date'] ?? null; // スクレイピングで取得した日付
+        
         logMessage("現在終値: ¥" . number_format($currentClose, 2));
+        if ($priceDate) {
+            logMessage("取引日: " . $priceDate);
+        }
         
         // 前日の終値を取得（保存する前に取得）
         $yesterdayClose = getYesterdayClose();
@@ -65,7 +70,8 @@ function main() {
             $priceData['open'],
             $priceData['high'],
             $priceData['low'],
-            $priceChangeRate
+            $priceChangeRate,
+            $priceDate  // スクレイピングで取得した日付を渡す
         );
         
         if ($saved) {

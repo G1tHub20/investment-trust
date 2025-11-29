@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- ホスト: localhost:3308
--- 生成日時: 2025-11-29 00:00:33
+-- 生成日時: 2025-11-29 09:29:37
 -- サーバのバージョン： 10.4.28-MariaDB
 -- PHP のバージョン: 8.2.24
 
@@ -45,6 +45,7 @@ CREATE TABLE `notifications` (
 
 CREATE TABLE `price_history` (
   `id` int(11) NOT NULL,
+  `date` date NOT NULL COMMENT '日付',
   `close` decimal(10,2) NOT NULL COMMENT '終値',
   `open` decimal(10,2) NOT NULL COMMENT '始値',
   `high` decimal(10,2) NOT NULL COMMENT '高値',
@@ -88,6 +89,7 @@ ALTER TABLE `notifications`
 --
 ALTER TABLE `price_history`
   ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `date` (`date`),
   ADD KEY `created_at` (`created_at`);
 
 --
