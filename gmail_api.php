@@ -36,22 +36,23 @@ class GmailNotifier {
         if (file_exists($this->tokenPath)) {
             $accessToken = json_decode(file_get_contents($this->tokenPath), true);
             $this->client->setAccessToken($accessToken);
-        }
-        
-        // トークンの更新が必要な場合
-        if ($this->client->isAccessTokenExpired()) {
-            if ($this->client->getRefreshToken()) {
-                $this->client->fetchAccessTokenWithRefreshToken($this->client->getRefreshToken());
-            } else {
-                // 新規認証が必要
-                throw new Exception('Gmail API認証が必要です。authenticate.phpを実行してください。');
-            }
             
-            // 新しいトークンを保存
-            if (!file_put_contents($this->tokenPath, json_encode($this->client->getAccessToken()))) {
-                throw new Exception('トークンの保存に失敗しました');
+            // トークンの更新が必要な場合
+            if ($this->client->isAccessTokenExpired()) {
+                if ($this->client->getRefreshToken()) {
+                    $this->client->fetchAccessTokenWithRefreshToken($this->client->getRefreshToken());
+                    
+                    // 新しいトークンを保存
+                    if (!file_put_contents($this->tokenPath, json_encode($this->client->getAccessToken()))) {
+                        throw new Exception('トークンの保存に失敗しました');
+                    }
+                } else {
+                    // 新規認証が必要
+                    throw new Exception('Gmail API認証が必要です。authenticate.phpを実行してください。');
+                }
             }
         }
+        // token.jsonが存在しない場合は、エラーを投げずに続行（初回認証用）
         
         $this->service = new Google_Service_Gmail($this->client);
     }
