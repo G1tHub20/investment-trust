@@ -4,35 +4,27 @@
  */
 
 class NikkeiScraper {
-    private $url = 'https://jp.investing.com/indices/japan-ni225';
-    private $historicalUrl = 'https://jp.investing.com/indices/japan-ni225-historical-data';
+    private $url = 'https://jp.investing.com/indices/japan-ni225-historical-data';
     private $userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
     
     /**
      * 日経平均株価を取得
-     * @return array ['price' => float, 'close' => float, 'open' => float, 'high' => float, 'low' => float, 'change' => float, 'change_percent' => float] or null
+     * @return array ['date' => string, 'close' => float, 'open' => float, 'high' => float, 'low' => float, 'change' => float, 'change_percent' => float] or null
      */
     public function getCurrentPrice() {
         try {
-            // 現在価格ページから価格と変動を取得
+            // 履歴データページから最新のOHLCと変動を取得
             $html = $this->fetchPage($this->url);
             if (!$html) {
                 throw new Exception('ページの取得に失敗しました');
             }
-            $currentData = $this->parsePrice($html);
             
-            // 履歴データページから最新のOHLCを取得
-            $historicalHtml = $this->fetchPage($this->historicalUrl);
-            if ($historicalHtml) {
-                $ohlcData = $this->parseHistoricalData($historicalHtml);
-                if ($ohlcData) {
-                    // OHLCデータと現在価格をマージ
-                    return array_merge($currentData, $ohlcData);
-                }
+            $data = $this->parseHistoricalData($html);
+            if (!$data) {
+                throw new Exception('データの解析に失敗しました');
             }
             
-            // OHLCが取得できない場合は現在価格を使用
-            return $currentData;
+            return $data;
         } catch (Exception $e) {
             error_log('Scraping error: ' . $e->getMessage());
             return null;
@@ -68,106 +60,12 @@ class NikkeiScraper {
         $html = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         
-        curl_close($ch);
-        
         if ($httpCode !== 200) {
             error_log("HTTP Error: $httpCode");
             return false;
         }
         
         return $html;
-    }
-    
-    /**
-     * HTMLから価格情報を抽出
-     * @param string $html
-     * @return array|null
-     */
-    private function parsePrice($html) {
-        // DOMDocumentで解析
-        $dom = new DOMDocument();
-        @$dom->loadHTML($html);
-        $xpath = new DOMXPath($dom);
-        
-        // 価格を取得（複数のパターンを試行）
-        $price = $this->extractPrice($xpath);
-        if ($price === null) {
-            throw new Exception('価格の抽出に失敗しました');
-        }
-        
-        // 変動値を取得
-        $change = $this->extractChange($xpath);
-        
-        // 変動率を取得
-        $changePercent = $this->extractChangePercent($xpath);
-        
-        // 基本データを返す（OHLCは履歴データから取得）
-        return [
-            'close' => $price,      // 終値（履歴データで上書きされる可能性あり）
-            'open' => $price,       // 始値（履歴データで上書きされる可能性あり）
-            'high' => $price,       // 高値（履歴データで上書きされる可能性あり）
-            'low' => $price,        // 低値（履歴データで上書きされる可能性あり）
-            'change' => $change,
-            'change_percent' => $changePercent
-        ];
-    }
-    
-    /**
-     * 価格を抽出
-     * @param DOMXPath $xpath
-     * @return float|null
-     */
-    private function extractPrice($xpath) {
-        // パターン1: data-test属性を使用
-        $nodes = $xpath->query("//*[@data-test='instrument-price-last']");
-        if ($nodes->length > 0) {
-            $priceText = trim($nodes->item(0)->nodeValue);
-            return $this->parseNumber($priceText);
-        }
-        
-        // パターン2: クラス名を使用
-        $nodes = $xpath->query("//span[contains(@class, 'text-2xl') or contains(@class, 'instrument-price_last')]");
-        if ($nodes->length > 0) {
-            $priceText = trim($nodes->item(0)->nodeValue);
-            return $this->parseNumber($priceText);
-        }
-        
-        // パターン3: より広範囲な検索
-        $nodes = $xpath->query("//span[contains(@class, 'last-price-value')]");
-        if ($nodes->length > 0) {
-            $priceText = trim($nodes->item(0)->nodeValue);
-            return $this->parseNumber($priceText);
-        }
-        
-        return null;
-    }
-    
-    /**
-     * 変動値を抽出
-     * @param DOMXPath $xpath
-     * @return float|null
-     */
-    private function extractChange($xpath) {
-        $nodes = $xpath->query("//*[contains(@class, 'instrument-price_change') or @data-test='instrument-price-change']");
-        if ($nodes->length > 0) {
-            $changeText = trim($nodes->item(0)->nodeValue);
-            return $this->parseNumber($changeText);
-        }
-        return null;
-    }
-    
-    /**
-     * 変動率を抽出
-     * @param DOMXPath $xpath
-     * @return float|null
-     */
-    private function extractChangePercent($xpath) {
-        $nodes = $xpath->query("//*[contains(@class, 'instrument-price_change-percent') or @data-test='instrument-price-change-percent']");
-        if ($nodes->length > 0) {
-            $percentText = trim($nodes->item(0)->nodeValue);
-            return $this->parseNumber($percentText);
-        }
-        return null;
     }
     
     /**
@@ -193,7 +91,7 @@ class NikkeiScraper {
     }
     
     /**
-     * 履歴データページから最新のOHLCを取得
+     * 履歴データページから最新のOHLCと変動を取得
      * @param string $html
      * @return array|null
      */
@@ -205,21 +103,21 @@ class NikkeiScraper {
             libxml_clear_errors();
             $xpath = new DOMXPath($dom);
             
-            // 履歴データテーブルの最初の行（最新データ）を取得
-            // Investing.comの履歴データテーブルを探す
-            $rows = $xpath->query("//table[@data-test='historical-data-table']//tbody/tr[1]");
+            // 履歴データテーブルの最初の2行を取得（変動計算のため）
+            $rows = $xpath->query("//table[@data-test='historical-data-table']//tbody/tr");
             
             if ($rows->length === 0) {
                 // 別のパターン: クラス名を使用
-                $rows = $xpath->query("//table[contains(@class, 'freeze-column-w-1')]//tbody/tr[1]");
+                $rows = $xpath->query("//table[contains(@class, 'freeze-column-w-1')]//tbody/tr");
             }
             
             if ($rows->length === 0) {
                 // より広範囲な検索
-                $rows = $xpath->query("//table[contains(@class, 'historicalTbl')]//tbody/tr[1]");
+                $rows = $xpath->query("//table[contains(@class, 'historicalTbl')]//tbody/tr");
             }
             
             if ($rows->length > 0) {
+                // 最新データ（1行目）を取得
                 $row = $rows->item(0);
                 $cells = $xpath->query(".//td", $row);
                 
@@ -235,13 +133,30 @@ class NikkeiScraper {
                     
                     // 値が妥当かチェック（日経平均は通常10,000〜100,000の範囲）
                     if ($close !== null && $close > 1000 && $close < 100000) {
-                        return [
+                        $result = [
                             'date' => $date,
                             'close' => $close,
                             'open' => $open ?? $close,
                             'high' => $high ?? $close,
-                            'low' => $low ?? $close
+                            'low' => $low ?? $close,
+                            'change' => null,
+                            'change_percent' => null
                         ];
+                        
+                        // 前日データから変動を計算
+                        if ($rows->length > 1) {
+                            $prevRow = $rows->item(1);
+                            $prevCells = $xpath->query(".//td", $prevRow);
+                            if ($prevCells->length >= 2) {
+                                $prevClose = $this->parseNumber($prevCells->item(1)->nodeValue);
+                                if ($prevClose !== null && $prevClose > 0) {
+                                    $result['change'] = $close - $prevClose;
+                                    $result['change_percent'] = round(($result['change'] / $prevClose) * 100, 2);
+                                }
+                            }
+                        }
+                        
+                        return $result;
                     }
                 }
             }

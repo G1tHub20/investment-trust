@@ -214,7 +214,12 @@ function getYesterdayClose() {
  */
 function getRecentNotifications($limit = 20) {
     $pdo = getDbConnection();
-    $stmt = $pdo->prepare('SELECT * FROM notifications ORDER BY notified_at DESC LIMIT :limit');
+    $stmt = $pdo->prepare('
+        SELECT id, signal_type, current_price, trigger_price, email_sent, notified_at
+        FROM notifications 
+        ORDER BY notified_at DESC 
+        LIMIT :limit
+    ');
     $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
     $stmt->execute();
     return $stmt->fetchAll();

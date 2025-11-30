@@ -260,10 +260,10 @@ $notifications = getRecentNotifications(10);
                             <?php foreach ($priceHistory as $history): ?>
                             <tr>
                                 <td><?php echo date('Y/m/d', strtotime($history['date'])); ?></td>
-                                <td>¥<?php echo number_format($history['close'], 2); ?></td>
-                                <td>¥<?php echo number_format($history['open'] ?? 0, 2); ?></td>
-                                <td>¥<?php echo number_format($history['high'] ?? 0, 2); ?></td>
-                                <td>¥<?php echo number_format($history['low'] ?? 0, 2); ?></td>
+                                <td>¥<?php echo number_format($history['close'], 0); ?></td>
+                                <td>¥<?php echo number_format($history['open'] ?? 0, 0); ?></td>
+                                <td>¥<?php echo number_format($history['high'] ?? 0, 0); ?></td>
+                                <td>¥<?php echo number_format($history['low'] ?? 0, 0); ?></td>
                                 <td class="<?php echo ($history['price_change_rate'] ?? 0) >= 0 ? 'positive' : 'negative'; ?>">
                                     <?php if ($history['price_change_rate'] !== null): ?>
                                         <?php echo ($history['price_change_rate'] >= 0 ? '+' : ''); ?>
@@ -288,7 +288,7 @@ $notifications = getRecentNotifications(10);
             <div class="system-info">
                 <div class="info-item">
                     <strong>監視URL:</strong>
-                    <a href="https://jp.investing.com/indices/japan-ni225" target="_blank" rel="noopener">
+                    <a href="https://jp.investing.com/indices/japan-ni225-historical-data" target="_blank" rel="noopener">
                         Investing.com - 日経平均
                     </a>
                 </div>

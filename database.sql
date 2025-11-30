@@ -19,11 +19,15 @@ CREATE TABLE IF NOT EXISTS settings (
 -- 価格履歴テーブル
 CREATE TABLE IF NOT EXISTS price_history (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    price DECIMAL(10, 2) NOT NULL COMMENT '株価',
-    price_change DECIMAL(10, 2) COMMENT '前日比',
-    price_change_percent DECIMAL(5, 2) COMMENT '変動率(%)',
-    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '取得日時',
-    INDEX idx_checked_at (checked_at)
+    date DATE NOT NULL COMMENT '日付',
+    close DECIMAL(10, 2) NOT NULL COMMENT '終値',
+    open DECIMAL(10, 2) NOT NULL COMMENT '始値',
+    high DECIMAL(10, 2) NOT NULL COMMENT '高値',
+    low DECIMAL(10, 2) NOT NULL COMMENT '低値',
+    price_change_rate DECIMAL(5, 4) DEFAULT NULL COMMENT '前日比',
+    updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY date (date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 通知履歴テーブル

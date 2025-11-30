@@ -13,7 +13,7 @@ body {
     color: #333;
     line-height: 1.6;
     min-height: 100vh;
-    padding: 20px;
+    padding: 15px;
 }
 
 /* コンテナ */
@@ -25,11 +25,11 @@ body {
 /* ヘッダー */
 .header {
     background: white;
-    padding: 30px;
+    padding: 20px;
     border-radius: 15px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
     text-align: center;
-    margin-bottom: 30px;
+    margin-bottom: 20px;
 }
 
 .header h1 {
@@ -46,10 +46,10 @@ body {
 /* カード */
 .card {
     background: white;
-    padding: 30px;
+    padding: 20px;
     border-radius: 15px;
     box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
-    margin-bottom: 30px;
+    margin-bottom: 20px;
 }
 
 .card h2 {
@@ -95,11 +95,11 @@ body {
 /* 現在の株価表示 */
 .current-price {
     text-align: center;
-    padding: 30px;
+    padding: 20px;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border-radius: 15px;
     color: white;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
 }
 
 .price-value {
@@ -130,11 +130,11 @@ body {
 
 /* シグナル状態 */
 .signal-status {
-    margin-top: 20px;
+    margin-top: 15px;
 }
 
 .signal-alert {
-    padding: 15px 20px;
+    padding: 12px 20px;
     border-radius: 10px;
     font-size: 1.2rem;
     font-weight: bold;
@@ -239,9 +239,9 @@ body {
 /* 情報ボックス */
 .info-box {
     background-color: #f3f4f6;
-    padding: 20px;
+    padding: 15px;
     border-radius: 10px;
-    margin-top: 30px;
+    margin-top: 20px;
 }
 
 .info-box h3 {
@@ -350,11 +350,11 @@ body {
 /* システム情報 */
 .system-info {
     display: grid;
-    gap: 15px;
+    gap: 12px;
 }
 
 .info-item {
-    padding: 15px;
+    padding: 12px;
     background-color: #f9fafb;
     border-radius: 8px;
     border-left: 4px solid #667eea;
@@ -380,8 +380,8 @@ body {
 .footer {
     text-align: center;
     color: white;
-    padding: 20px;
-    margin-top: 30px;
+    padding: 15px;
+    margin-top: 20px;
     font-size: 0.9rem;
 }
 
