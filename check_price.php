@@ -17,7 +17,7 @@ function logMessage($message) {
 }
 
 // メイン処理
-function main() {
+function main($skipSignal = false) {
     logMessage("=== 日経平均株価監視開始 ===");
     
     try {
@@ -29,9 +29,9 @@ function main() {
         }
         
         logMessage("設定読み込み完了");
-        logMessage("基準価格: ¥" . number_format($settings['base_price'], 2));
-        logMessage("買いシグナル: ¥" . number_format($settings['buy_signal_price'], 2));
-        logMessage("売りシグナル: ¥" . number_format($settings['sell_signal_price'], 2));
+        logMessage("基準価格: ¥" . number_format($settings['base_price'], 0));
+        logMessage("買いシグナル: ¥" . number_format($settings['buy_signal_price'], 0));
+        logMessage("売りシグナル: ¥" . number_format($settings['sell_signal_price'], 0));
         
         // 株価を取得
         $scraper = new NikkeiScraper();
@@ -46,7 +46,7 @@ function main() {
         $currentPrice = $currentClose; // 互換性のため
         $priceDate = $priceData['date'] ?? null; // スクレイピングで取得した日付
         
-        logMessage("現在終値: ¥" . number_format($currentClose, 2));
+        logMessage("現在終値: ¥" . number_format($currentClose, 0));
         if ($priceDate) {
             logMessage("取引日: " . $priceDate);
         }
@@ -58,7 +58,7 @@ function main() {
         $priceChangeRate = null;
         if ($yesterdayClose && $yesterdayClose > 0) {
             $priceChangeRate = ($currentClose - $yesterdayClose) / $yesterdayClose;
-            logMessage("前日終値: ¥" . number_format($yesterdayClose, 2));
+            logMessage("前日終値: ¥" . number_format($yesterdayClose, 0));
             logMessage("変動率: " . number_format($priceChangeRate * 100, 2) . "%");
         } else {
             logMessage("前日の終値が見つかりません。初回実行の可能性があります。");
@@ -80,56 +80,82 @@ function main() {
             logMessage("エラー: 価格履歴の保存に失敗しました");
         }
         
-        // シグナル判定
-        $signalTriggered = false;
-        
-        // 買いシグナルチェック
-        if ($currentPrice < $settings['buy_signal_price']) {
-            logMessage("🔔 買いシグナル発生！");
-            logMessage("現在価格 (¥" . number_format($currentPrice, 2) . ") < 買いシグナル価格 (¥" . number_format($settings['buy_signal_price'], 2) . ")");
+        // 大幅下落チェック（前日比-1500円以上）
+        $dropThreshold = 1500;
+        if ($yesterdayClose && ($yesterdayClose - $currentPrice) >= $dropThreshold) {
+            $dropAmount = $yesterdayClose - $currentPrice;
+            logMessage("⚠️ 大幅下落検出！");
+            logMessage("下落額: ¥" . number_format($dropAmount, 0) . " (前日比)");
             
             // メール送信
-            $emailSent = sendBuyNotification(
+            $emailSent = sendLargeDropNotification(
                 $settings['email_address'],
                 $currentPrice,
-                $settings['buy_signal_price'],
-                $settings['base_price']
+                $yesterdayClose,
+                $dropAmount
             );
             
             if ($emailSent) {
-                logMessage("✅ 買いシグナル通知メールを送信しました");
+                logMessage("✅ 大幅下落通知メールを送信しました");
             } else {
-                logMessage("❌ 買いシグナル通知メールの送信に失敗しました");
+                logMessage("❌ 大幅下落通知メールの送信に失敗しました");
             }
-            
-            $signalTriggered = true;
         }
         
-        // 売りシグナルチェック
-        if ($currentPrice > $settings['sell_signal_price']) {
-            logMessage("🔔 売りシグナル発生！");
-            logMessage("現在価格 (¥" . number_format($currentPrice, 2) . ") > 売りシグナル価格 (¥" . number_format($settings['sell_signal_price'], 2) . ")");
+        // シグナル判定（skipSignalがtrueの場合はスキップ）
+        if (!$skipSignal) {
+            $signalTriggered = false;
             
-            // メール送信
-            $emailSent = sendSellNotification(
-                $settings['email_address'],
-                $currentPrice,
-                $settings['sell_signal_price'],
-                $settings['base_price']
-            );
-            
-            if ($emailSent) {
-                logMessage("✅ 売りシグナル通知メールを送信しました");
-            } else {
-                logMessage("❌ 売りシグナル通知メールの送信に失敗しました");
+            // 買いシグナルチェック
+            if ($currentPrice < $settings['buy_signal_price']) {
+                logMessage("🔔 買いシグナル発生！");
+                logMessage("現在価格 (¥" . number_format($currentPrice, 0) . ") < 買いシグナル価格 (¥" . number_format($settings['buy_signal_price'], 0) . ")");
+                
+                // メール送信
+                $emailSent = sendBuyNotification(
+                    $settings['email_address'],
+                    $currentPrice,
+                    $settings['buy_signal_price'],
+                    $settings['base_price']
+                );
+                
+                if ($emailSent) {
+                    logMessage("✅ 買いシグナル通知メールを送信しました");
+                } else {
+                    logMessage("❌ 買いシグナル通知メールの送信に失敗しました");
+                }
+                
+                $signalTriggered = true;
             }
             
-            $signalTriggered = true;
-        }
-        
-        if (!$signalTriggered) {
-            logMessage("シグナルなし（正常範囲内）");
-            logMessage("買いシグナル価格 (¥" . number_format($settings['buy_signal_price'], 2) . ") < 現在価格 (¥" . number_format($currentPrice, 2) . ") < 売りシグナル価格 (¥" . number_format($settings['sell_signal_price'], 2) . ")");
+            // 売りシグナルチェック
+            if ($currentPrice > $settings['sell_signal_price']) {
+                logMessage("🔔 売りシグナル発生！");
+                logMessage("現在価格 (¥" . number_format($currentPrice, 0) . ") > 売りシグナル価格 (¥" . number_format($settings['sell_signal_price'], 0) . ")");
+                
+                // メール送信
+                $emailSent = sendSellNotification(
+                    $settings['email_address'],
+                    $currentPrice,
+                    $settings['sell_signal_price'],
+                    $settings['base_price']
+                );
+                
+                if ($emailSent) {
+                    logMessage("✅ 売りシグナル通知メールを送信しました");
+                } else {
+                    logMessage("❌ 売りシグナル通知メールの送信に失敗しました");
+                }
+                
+                $signalTriggered = true;
+            }
+            
+            if (!$signalTriggered) {
+                logMessage("シグナルなし（正常範囲内）");
+                logMessage("買いシグナル価格 (¥" . number_format($settings['buy_signal_price'], 0) . ") < 現在価格 (¥" . number_format($currentPrice, 0) . ") < 売りシグナル価格 (¥" . number_format($settings['sell_signal_price'], 0) . ")");
+            }
+        } else {
+            logMessage("シグナル判定をスキップしました（--no-signal オプション）");
         }
         
         logMessage("=== 監視完了 ===");
@@ -210,9 +236,44 @@ function sendSellNotification($emailAddress, $currentPrice, $sellSignalPrice, $b
     }
 }
 
-// スクリプト実行
-if (php_sapi_name() === 'cli' || basename(__FILE__) === basename($_SERVER['PHP_SELF'])) {
-    $result = main();
+/**
+ * 大幅下落通知を送信
+ */
+function sendLargeDropNotification($emailAddress, $currentPrice, $yesterdayClose, $dropAmount) {
+    try {
+        $notifier = new GmailNotifier();
+        $result = $notifier->sendLargeDropAlert($emailAddress, $currentPrice, $yesterdayClose, $dropAmount);
+        
+        // 通知履歴を保存
+        saveNotification(
+            'large_drop',
+            $currentPrice,
+            $yesterdayClose,
+            $result,
+            $result ? null : 'メール送信に失敗しました'
+        );
+        
+        return $result;
+    } catch (Exception $e) {
+        logMessage("大幅下落通知エラー: " . $e->getMessage());
+        
+        // エラーも履歴に保存
+        saveNotification(
+            'large_drop',
+            $currentPrice,
+            $yesterdayClose,
+            false,
+            $e->getMessage()
+        );
+        
+        return false;
+    }
+}
+
+// CLI実行時のみ実行
+if (php_sapi_name() === 'cli') {
+    $skipSignal = ($argv[1] ?? '') === '--no-signal';
+    $result = main($skipSignal);
     exit($result ? 0 : 1);
 }
 

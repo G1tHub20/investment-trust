@@ -6,9 +6,10 @@
 
 - 📊 日経平均株価のリアルタイム監視
 - 🔔 買い・売りシグナルの自動通知（Gmail API経由）
+- ⚠️ 大幅下落警告通知（前日比-1500円以上で自動通知）
 - ⚙️ Webインターフェースで簡単設定
 - 📈 価格履歴・通知履歴の記録と表示
-- 🕐 1日2回の自動チェック（cron設定）
+- 🕐 1日3回の自動チェック（cron設定）
 
 ## 🚀 セットアップ手順
 
@@ -17,16 +18,8 @@
 - PHP 7.4以上
 - MySQL 5.7以上
 - Composer
-- Webサーバー（Apache/Nginx）
+- Webサーバー（Apache）
 - cronジョブ設定権限
-
-### 2. ファイルの配置
-
-```bash
-cd /path/to/your/webroot
-git clone [your-repository-url] investment-trust
-cd investment-trust
-```
 
 ### 3. 環境変数ファイルの設定
 
@@ -142,7 +135,9 @@ mysql -u root -p -P 3308 investment_trust < database.sql
 
 ### 8. cronジョブの設定（自動実行）
 
-1日2回、平日の10:30と14:30に自動チェックを実行するようにcronを設定します。
+1日3回、毎日、自動チェックを実行するようにcronを設定します。
+- 10:30、14:30: シグナル判定あり（買い・売りシグナル通知）
+- 18:30: シグナル判定なし（株価保存のみ、終値確定後のデータ取得用）
 
 #### さくらVPS Ubuntu環境（推奨）
 
@@ -170,15 +165,24 @@ crontab -e
 以下を追加：
 
 ```cron
-# 日経平均監視（平日10:30と14:30に実行）
-30 10 * * 1-5 /usr/bin/php /path/to/investment-trust/check_price.php >> /path/to/investment-trust/logs/cron.log 2>&1
-30 14 * * 1-5 /usr/bin/php /path/to/investment-trust/check_price.php >> /path/to/investment-trust/logs/cron.log 2>&1
+# 日経平均監視（毎日10:30と14:30に実行）- シグナル判定あり
+30 10 * * * cd /path/to/investment-trust && /usr/bin/php check_price.php >> /path/to/investment-trust/logs/cron.log 2>&1
+30 14 * * * cd /path/to/investment-trust && /usr/bin/php check_price.php >> /path/to/investment-trust/logs/cron.log 2>&1
+
+# 日経平均監視（毎日18:30に実行）- シグナル判定なし（株価保存のみ）
+30 18 * * * cd /path/to/investment-trust && /usr/bin/php check_price.php --no-signal >> /path/to/investment-trust/logs/cron.log 2>&1
 ```
 
 **cronの時刻指定について:**
-- `30 10 * * 1-5`: 平日（月〜金）の10:30に実行
-- `30 14 * * 1-5`: 平日（月〜金）の14:30に実行
-- 土日は市場が閉まっているため実行されません
+- `30 10 * * *`: 毎日10:30に実行（シグナル判定あり）
+- `30 14 * * *`: 毎日14:30に実行（シグナル判定あり）
+- `30 18 * * *`: 毎日18:30に実行（シグナル判定なし）
+- 土日は市場が閉まっているため、直近の取引日（金曜日）のデータが取得されます
+
+**--no-signalオプション:**
+- このオプションを付けると、株価の取得・保存のみ実行し、買い・売りシグナルの判定とメール通知をスキップします
+- 18:30は取引終了後のため、終値確定後のデータを保存する目的で使用します
+- 大幅下落警告（前日比-1500円以上）は`--no-signal`オプションに関係なく常にチェックされます
 
 **設定確認:**
 
@@ -357,6 +361,8 @@ investment-trust/
 
 システムは以下のロジックで通知を送信します：
 
+### 買い・売りシグナル（--no-signalオプションなしの場合のみ）
+
 1. **買いシグナル**: 現在価格 < 買いシグナル価格
    - メール件名: 「【買いシグナル】日経平均株価が下落しました」
    - 推奨アクション: 買いを検討
@@ -367,6 +373,13 @@ investment-trust/
 
 3. **正常範囲**: 買いシグナル価格 ≤ 現在価格 ≤ 売りシグナル価格
    - 通知なし
+
+### 大幅下落警告（常時チェック）
+
+4. **大幅下落警告**: 前日終値 - 現在価格 ≥ 1500円
+   - メール件名: 「【警告】日経平均が大幅下落しました」
+   - 前日比で1500円以上の下落を検出した場合に通知
+   - `--no-signal`オプションに関係なく常にチェックされます
 
 ※ 条件を満たす度に毎回通知されます
 
@@ -386,7 +399,19 @@ investment-trust/
 
 ### 通知メールのカスタマイズ
 
-`gmail_api.php`の`sendBuySignal()`と`sendSellSignal()`メソッドを編集してメール内容をカスタマイズできます。
+`gmail_api.php`の以下のメソッドを編集してメール内容をカスタマイズできます：
+- `sendBuySignal()`: 買いシグナル通知
+- `sendSellSignal()`: 売りシグナル通知
+- `sendLargeDropAlert()`: 大幅下落警告通知
+
+### 大幅下落の閾値変更
+
+`check_price.php`の`$dropThreshold`変数を編集して閾値を変更できます：
+
+```php
+// 大幅下落チェック（前日比-1500円以上）
+$dropThreshold = 1500;  // この値を変更
+```
 
 ### スクレイピング対象の変更
 
@@ -407,6 +432,11 @@ investment-trust/
 
 ## 🔄 更新履歴
 
+- **2025-12-02**: 機能追加
+  - 大幅下落警告機能を追加（前日比-1500円以上で通知）
+  - `--no-signal`オプションを追加（シグナル判定をスキップして株価保存のみ実行）
+  - 18:30の定期実行を追加（終値確定後のデータ取得用）
+
 - **2025-11-28**: 初回リリース
   - 基本機能実装
   - Gmail API連携
@@ -415,5 +445,5 @@ investment-trust/
 ---
 
 **開発者**: Investment Trust System
-**最終更新**: 2025年11月28日
+**最終更新**: 2025年12月2日
 

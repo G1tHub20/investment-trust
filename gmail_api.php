@@ -282,5 +282,69 @@ class GmailNotifier {
         
         return $this->sendEmail($to, $subject, $body);
     }
+    
+    /**
+     * 大幅下落通知を送信
+     * @param string $to
+     * @param float $currentPrice
+     * @param float $yesterdayClose
+     * @param float $dropAmount
+     * @return bool
+     */
+    public function sendLargeDropAlert($to, $currentPrice, $yesterdayClose, $dropAmount) {
+        $subject = '【警告】日経平均が大幅下落しました';
+        $dropPercent = ($dropAmount / $yesterdayClose) * 100;
+        
+        $body = "
+        <html>
+        <head>
+            <style>
+                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background-color: #D32F2F; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+                .content { background-color: #f9f9f9; padding: 20px; border: 1px solid #ddd; border-radius: 0 0 5px 5px; }
+                .price { font-size: 24px; font-weight: bold; color: #D32F2F; margin: 10px 0; }
+                .drop { font-size: 20px; font-weight: bold; color: #D32F2F; }
+                .info { margin: 10px 0; padding: 10px; background-color: white; border-left: 4px solid #D32F2F; }
+                .footer { margin-top: 20px; font-size: 12px; color: #666; text-align: center; }
+            </style>
+        </head>
+        <body>
+            <div class='container'>
+                <div class='header'>
+                    <h2>⚠️ 大幅下落警告</h2>
+                </div>
+                <div class='content'>
+                    <p>日経平均株価が前日比で大幅に下落しました。</p>
+                    
+                    <div class='info'>
+                        <strong>現在価格:</strong>
+                        <div class='price'>¥" . number_format($currentPrice, 0) . "</div>
+                    </div>
+                    
+                    <div class='info'>
+                        <strong>前日終値:</strong> ¥" . number_format($yesterdayClose, 0) . "<br>
+                        <strong>下落額:</strong> <span class='drop'>-¥" . number_format($dropAmount, 0) . "</span><br>
+                        <strong>下落率:</strong> <span class='drop'>-" . number_format($dropPercent, 2) . "%</span>
+                    </div>
+                    
+                    <p style='margin-top: 20px;'>
+                        <strong>注意:</strong> 市場が大きく動いています。冷静に状況を判断してください。
+                    </p>
+                    
+                    <p style='font-size: 12px; color: #666; margin-top: 20px;'>
+                        ※ この通知は自動送信されています。投資判断は自己責任で行ってください。
+                    </p>
+                </div>
+                <div class='footer'>
+                    日経平均監視システム - " . date('Y年m月d日 H:i:s') . "
+                </div>
+            </div>
+        </body>
+        </html>
+        ";
+        
+        return $this->sendEmail($to, $subject, $body);
+    }
 }
 
