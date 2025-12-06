@@ -26,14 +26,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $basePrice = floatval($_POST['base_price']);
         $buySignalPrice = floatval($_POST['buy_signal_price']);
         $sellSignalPrice = floatval($_POST['sell_signal_price']);
-        $emailAddress = trim($_POST['email_address']);
+        $slackWebhookUrl = trim($_POST['slack_webhook_url']);
         
         // バリデーション
         if ($basePrice <= 0 || $buySignalPrice <= 0 || $sellSignalPrice <= 0) {
             $message = '価格は0より大きい値を入力してください。';
             $messageType = 'error';
-        } elseif (!filter_var($emailAddress, FILTER_VALIDATE_EMAIL)) {
-            $message = '有効なメールアドレスを入力してください。';
+        } elseif (empty($slackWebhookUrl) || !preg_match('/^https:\/\/hooks\.slack\.com\//', $slackWebhookUrl)) {
+            $message = '有効なSlack Webhook URLを入力してください。';
             $messageType = 'error';
         } elseif ($buySignalPrice >= $basePrice) {
             $message = '買いシグナル価格は基準価格より低く設定してください。';
@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $message = '売りシグナル価格は基準価格より高く設定してください。';
             $messageType = 'error';
         } else {
-            if (updateSettings($basePrice, $buySignalPrice, $sellSignalPrice, $emailAddress)) {
+            if (updateSettings($basePrice, $buySignalPrice, $sellSignalPrice, $slackWebhookUrl)) {
                 $message = '設定を更新しました。';
                 $messageType = 'success';
             } else {
@@ -61,7 +61,7 @@ if (!$settings) {
         'base_price' => 50000.00,
         'buy_signal_price' => 49000.00,
         'sell_signal_price' => 52000.00,
-        'email_address' => ''
+        'slack_webhook_url' => ''
     ];
 }
 
@@ -176,11 +176,12 @@ $notifications = getRecentNotifications(10);
                 </div>
 
                 <div class="form-group">
-                    <label for="email_address">通知先メールアドレス</label>
-                    <input type="email" id="email_address" name="email_address" 
-                           value="<?php echo htmlspecialchars($settings['email_address']); ?>" 
+                    <label for="slack_webhook_url">Slack Webhook URL</label>
+                    <input type="url" id="slack_webhook_url" name="slack_webhook_url" 
+                           value="<?php echo htmlspecialchars($settings['slack_webhook_url'] ?? ''); ?>" 
+                           placeholder="https://hooks.slack.com/services/..."
                            required>
-                    <small>シグナル発生時の通知先</small>
+                    <small>シグナル発生時のSlack通知先</small>
                 </div>
 
                 <button type="submit" class="btn btn-primary">設定を保存</button>
@@ -192,6 +193,7 @@ $notifications = getRecentNotifications(10);
                     <li>基準価格: 現在の市場価格を参考に設定</li>
                     <li>買いシグナル: 基準価格より低く設定（例: -1,000円）</li>
                     <li>売りシグナル: 基準価格より高く設定（例: +2,000円）</li>
+                    <li>大幅下落検出：前日比-1500円以上（固定値）</li>
                     <li>通知は1日2回（10:30、14:30）のチェック時に送信されます</li>
                 </ul>
             </div>
@@ -199,7 +201,7 @@ $notifications = getRecentNotifications(10);
 
         <!-- 通知履歴 -->
         <section class="card">
-            <h2>📧 通知履歴</h2>
+            <h2>🔔 通知履歴</h2>
             <?php if (count($notifications) > 0): ?>
                 <div class="table-responsive">
                     <table class="history-table">
@@ -218,13 +220,16 @@ $notifications = getRecentNotifications(10);
                                 <td><?php echo date('Y/m/d H:i', strtotime($notification['notified_at'])); ?></td>
                                 <td>
                                     <span class="badge <?php echo $notification['signal_type']; ?>">
-                                        <?php echo $notification['signal_type'] === 'buy' ? '買い' : '売り'; ?>
+                                        <?php 
+                                        $signalLabels = ['buy' => '買い', 'sell' => '売り', 'large_drop' => '大幅下落'];
+                                        echo $signalLabels[$notification['signal_type']] ?? $notification['signal_type']; 
+                                        ?>
                                     </span>
                                 </td>
                                 <td>¥<?php echo number_format($notification['current_price'], 0); ?></td>
                                 <td>¥<?php echo number_format($notification['trigger_price'], 0); ?></td>
                                 <td>
-                                    <?php if ($notification['email_sent']): ?>
+                                    <?php if ($notification['slack_sent']): ?>
                                         <span class="status-success">✅ 送信済</span>
                                     <?php else: ?>
                                         <span class="status-error">❌ 失敗</span>
@@ -301,12 +306,11 @@ $notifications = getRecentNotifications(10);
                     </ul>
                 </div>
                 <div class="info-item">
-                    <strong>Gmail API認証:</strong>
-                    <?php if (file_exists(__DIR__ . '/token.json')): ?>
-                        <span class="status-success">✅ 認証済み</span>
+                    <strong>Slack通知:</strong>
+                    <?php if (!empty($settings['slack_webhook_url'])): ?>
+                        <span class="status-success">✅ 設定済み</span>
                     <?php else: ?>
-                        <span class="status-error">❌ 未認証</span>
-                        <a href="authenticate.php" class="btn btn-small">認証する</a>
+                        <span class="status-error">❌ 未設定</span>
                     <?php endif; ?>
                 </div>
                 <div class="info-item">

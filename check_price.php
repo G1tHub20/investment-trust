@@ -6,7 +6,7 @@
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/scraper.php';
-require_once __DIR__ . '/gmail_api.php';
+require_once __DIR__ . '/slack_notifier.php';
 
 // ログ出力関数
 function logMessage($message) {
@@ -87,18 +87,18 @@ function main($skipSignal = false) {
             logMessage("⚠️ 大幅下落検出！");
             logMessage("下落額: ¥" . number_format($dropAmount, 0) . " (前日比)");
             
-            // メール送信
-            $emailSent = sendLargeDropNotification(
-                $settings['email_address'],
+            // Slack送信
+            $slackSent = sendLargeDropNotification(
+                $settings['slack_webhook_url'],
                 $currentPrice,
                 $yesterdayClose,
                 $dropAmount
             );
             
-            if ($emailSent) {
-                logMessage("✅ 大幅下落通知メールを送信しました");
+            if ($slackSent) {
+                logMessage("✅ 大幅下落通知をSlackに送信しました");
             } else {
-                logMessage("❌ 大幅下落通知メールの送信に失敗しました");
+                logMessage("❌ 大幅下落通知のSlack送信に失敗しました");
             }
         }
         
@@ -111,18 +111,18 @@ function main($skipSignal = false) {
                 logMessage("🔔 買いシグナル発生！");
                 logMessage("現在価格 (¥" . number_format($currentPrice, 0) . ") < 買いシグナル価格 (¥" . number_format($settings['buy_signal_price'], 0) . ")");
                 
-                // メール送信
-                $emailSent = sendBuyNotification(
-                    $settings['email_address'],
+                // Slack送信
+                $slackSent = sendBuyNotification(
+                    $settings['slack_webhook_url'],
                     $currentPrice,
                     $settings['buy_signal_price'],
                     $settings['base_price']
                 );
                 
-                if ($emailSent) {
-                    logMessage("✅ 買いシグナル通知メールを送信しました");
+                if ($slackSent) {
+                    logMessage("✅ 買いシグナル通知をSlackに送信しました");
                 } else {
-                    logMessage("❌ 買いシグナル通知メールの送信に失敗しました");
+                    logMessage("❌ 買いシグナル通知のSlack送信に失敗しました");
                 }
                 
                 $signalTriggered = true;
@@ -133,18 +133,18 @@ function main($skipSignal = false) {
                 logMessage("🔔 売りシグナル発生！");
                 logMessage("現在価格 (¥" . number_format($currentPrice, 0) . ") > 売りシグナル価格 (¥" . number_format($settings['sell_signal_price'], 0) . ")");
                 
-                // メール送信
-                $emailSent = sendSellNotification(
-                    $settings['email_address'],
+                // Slack送信
+                $slackSent = sendSellNotification(
+                    $settings['slack_webhook_url'],
                     $currentPrice,
                     $settings['sell_signal_price'],
                     $settings['base_price']
                 );
                 
-                if ($emailSent) {
-                    logMessage("✅ 売りシグナル通知メールを送信しました");
+                if ($slackSent) {
+                    logMessage("✅ 売りシグナル通知をSlackに送信しました");
                 } else {
-                    logMessage("❌ 売りシグナル通知メールの送信に失敗しました");
+                    logMessage("❌ 売りシグナル通知のSlack送信に失敗しました");
                 }
                 
                 $signalTriggered = true;
@@ -171,10 +171,10 @@ function main($skipSignal = false) {
 /**
  * 買いシグナル通知を送信
  */
-function sendBuyNotification($emailAddress, $currentPrice, $buySignalPrice, $basePrice) {
+function sendBuyNotification($slackWebhookUrl, $currentPrice, $buySignalPrice, $basePrice) {
     try {
-        $notifier = new GmailNotifier();
-        $result = $notifier->sendBuySignal($emailAddress, $currentPrice, $buySignalPrice, $basePrice);
+        $notifier = new SlackNotifier($slackWebhookUrl);
+        $result = $notifier->sendBuySignal($currentPrice, $buySignalPrice, $basePrice);
         
         // 通知履歴を保存
         saveNotification(
@@ -182,7 +182,7 @@ function sendBuyNotification($emailAddress, $currentPrice, $buySignalPrice, $bas
             $currentPrice,
             $buySignalPrice,
             $result,
-            $result ? null : 'メール送信に失敗しました'
+            $result ? null : 'Slack送信に失敗しました'
         );
         
         return $result;
@@ -205,10 +205,10 @@ function sendBuyNotification($emailAddress, $currentPrice, $buySignalPrice, $bas
 /**
  * 売りシグナル通知を送信
  */
-function sendSellNotification($emailAddress, $currentPrice, $sellSignalPrice, $basePrice) {
+function sendSellNotification($slackWebhookUrl, $currentPrice, $sellSignalPrice, $basePrice) {
     try {
-        $notifier = new GmailNotifier();
-        $result = $notifier->sendSellSignal($emailAddress, $currentPrice, $sellSignalPrice, $basePrice);
+        $notifier = new SlackNotifier($slackWebhookUrl);
+        $result = $notifier->sendSellSignal($currentPrice, $sellSignalPrice, $basePrice);
         
         // 通知履歴を保存
         saveNotification(
@@ -216,7 +216,7 @@ function sendSellNotification($emailAddress, $currentPrice, $sellSignalPrice, $b
             $currentPrice,
             $sellSignalPrice,
             $result,
-            $result ? null : 'メール送信に失敗しました'
+            $result ? null : 'Slack送信に失敗しました'
         );
         
         return $result;
@@ -239,10 +239,10 @@ function sendSellNotification($emailAddress, $currentPrice, $sellSignalPrice, $b
 /**
  * 大幅下落通知を送信
  */
-function sendLargeDropNotification($emailAddress, $currentPrice, $yesterdayClose, $dropAmount) {
+function sendLargeDropNotification($slackWebhookUrl, $currentPrice, $yesterdayClose, $dropAmount) {
     try {
-        $notifier = new GmailNotifier();
-        $result = $notifier->sendLargeDropAlert($emailAddress, $currentPrice, $yesterdayClose, $dropAmount);
+        $notifier = new SlackNotifier($slackWebhookUrl);
+        $result = $notifier->sendLargeDropAlert($currentPrice, $yesterdayClose, $dropAmount);
         
         // 通知履歴を保存
         saveNotification(
@@ -250,7 +250,7 @@ function sendLargeDropNotification($emailAddress, $currentPrice, $yesterdayClose
             $currentPrice,
             $yesterdayClose,
             $result,
-            $result ? null : 'メール送信に失敗しました'
+            $result ? null : 'Slack送信に失敗しました'
         );
         
         return $result;
