@@ -59,10 +59,10 @@ function getSettings() {
  * @param float $basePrice
  * @param float $buySignalPrice
  * @param float $sellSignalPrice
- * @param string $emailAddress
+ * @param string $slackWebhookUrl
  * @return bool
  */
-function updateSettings($basePrice, $buySignalPrice, $sellSignalPrice, $emailAddress) {
+function updateSettings($basePrice, $buySignalPrice, $sellSignalPrice, $slackWebhookUrl) {
     $pdo = getDbConnection();
     
     // 既存の設定を無効化
@@ -70,15 +70,15 @@ function updateSettings($basePrice, $buySignalPrice, $sellSignalPrice, $emailAdd
     
     // 新しい設定を挿入
     $stmt = $pdo->prepare('
-        INSERT INTO settings (base_price, buy_signal_price, sell_signal_price, email_address, is_active)
-        VALUES (:base_price, :buy_signal_price, :sell_signal_price, :email_address, 1)
+        INSERT INTO settings (base_price, buy_signal_price, sell_signal_price, slack_webhook_url, is_active)
+        VALUES (:base_price, :buy_signal_price, :sell_signal_price, :slack_webhook_url, 1)
     ');
     
     return $stmt->execute([
         ':base_price' => $basePrice,
         ':buy_signal_price' => $buySignalPrice,
         ':sell_signal_price' => $sellSignalPrice,
-        ':email_address' => $emailAddress
+        ':slack_webhook_url' => $slackWebhookUrl
     ]);
 }
 
@@ -148,25 +148,25 @@ function savePriceHistory($date, $close = null, $open = null, $high = null, $low
 
 /**
  * 通知履歴を保存
- * @param string $signalType 'buy' or 'sell'
+ * @param string $signalType 'buy' or 'sell' or 'large_drop'
  * @param float $currentPrice
  * @param float $triggerPrice
- * @param bool $emailSent
+ * @param bool $slackSent
  * @param string|null $errorMessage
  * @return bool
  */
-function saveNotification($signalType, $currentPrice, $triggerPrice, $emailSent, $errorMessage = null) {
+function saveNotification($signalType, $currentPrice, $triggerPrice, $slackSent, $errorMessage = null) {
     $pdo = getDbConnection();
     $stmt = $pdo->prepare('
-        INSERT INTO notifications (signal_type, current_price, trigger_price, email_sent, error_message)
-        VALUES (:signal_type, :current_price, :trigger_price, :email_sent, :error_message)
+        INSERT INTO notifications (signal_type, current_price, trigger_price, slack_sent, error_message)
+        VALUES (:signal_type, :current_price, :trigger_price, :slack_sent, :error_message)
     ');
     
     return $stmt->execute([
         ':signal_type' => $signalType,
         ':current_price' => $currentPrice,
         ':trigger_price' => $triggerPrice,
-        ':email_sent' => $emailSent ? 1 : 0,
+        ':slack_sent' => $slackSent ? 1 : 0,
         ':error_message' => $errorMessage
     ]);
 }
@@ -215,7 +215,7 @@ function getYesterdayClose() {
 function getRecentNotifications($limit = 20) {
     $pdo = getDbConnection();
     $stmt = $pdo->prepare('
-        SELECT id, signal_type, current_price, trigger_price, email_sent, notified_at
+        SELECT id, signal_type, current_price, trigger_price, slack_sent, notified_at
         FROM notifications 
         ORDER BY notified_at DESC 
         LIMIT :limit
