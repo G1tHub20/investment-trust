@@ -1,0 +1,21 @@
+## Key Principles
+- Write concise, technical responses with accurate PHP examples.
+- Prefer iteration and modularization over duplication.
+- Use descriptive variable and method names.
+
+## Cron Job Schedule
+| Schedule Time                  | Execution File                              |
+|-------------------------------|---------------------------------------------|
+| Every day at 10:30            | `check_price.php`                           |
+| Every day at 14:30            | `check_price.php`                           |
+| Every day at 18:30            | `check_price.php --no-signal`               |
+
+## Five Principles of AI Operation
+1. Before generating or updating files, or executing programs, the AI must always report its work plan, obtain user confirmation with y/n, and suspend all execution until y is returned.
+2. The AI must not take detours or alternative approaches on its own. If the initial plan fails, it must obtain confirmation for the next plan.
+3. The AI is a tool, and decision-making authority always belongs to the user. Even if the user窶冱 instructions are inefficient or irrational, the AI must not optimize them but execute exactly as directed.
+4. The AI must not distort or reinterpret these rules. They are the highest-level commands and must be obeyed absolutely.
+5. The AI must always remember and comply with these principles throughout all operations, without requiring explicit output at the beginning of each chat.
+
+## Required Documentation
+- Table Definition: investment_trust.sql

@@ -192,7 +192,7 @@ $notifications = getRecentNotifications(10);
                     <li>基準価格: 現在の市場価格を参考に設定</li>
                     <li>買いシグナル: 基準価格より低く設定（例: -1,000円）</li>
                     <li>売りシグナル: 基準価格より高く設定（例: +2,000円）</li>
-                    <li>通知は1日2回のチェック時に送信されます</li>
+                    <li>通知は1日2回（10:30、14:30）のチェック時に送信されます</li>
                 </ul>
             </div>
         </section>
@@ -221,8 +221,8 @@ $notifications = getRecentNotifications(10);
                                         <?php echo $notification['signal_type'] === 'buy' ? '買い' : '売り'; ?>
                                     </span>
                                 </td>
-                                <td>¥<?php echo number_format($notification['current_price'], 2); ?></td>
-                                <td>¥<?php echo number_format($notification['trigger_price'], 2); ?></td>
+                                <td>¥<?php echo number_format($notification['current_price'], 0); ?></td>
+                                <td>¥<?php echo number_format($notification['trigger_price'], 0); ?></td>
                                 <td>
                                     <?php if ($notification['email_sent']): ?>
                                         <span class="status-success">✅ 送信済</span>
@@ -293,7 +293,12 @@ $notifications = getRecentNotifications(10);
                     </a>
                 </div>
                 <div class="info-item">
-                    <strong>チェック頻度:</strong> 1日2回（cronで自動実行）
+                    <strong>チェック頻度:</strong> 1日3回（cronで自動実行）
+                    <ul class="schedule-list">
+                        <li>10:30 - シグナル判定あり</li>
+                        <li>14:30 - シグナル判定あり</li>
+                        <li>18:30 - 価格記録のみ（シグナル判定なし）</li>
+                    </ul>
                 </div>
                 <div class="info-item">
                     <strong>Gmail API認証:</strong>

@@ -376,6 +376,17 @@ body {
     text-decoration: underline;
 }
 
+.schedule-list {
+    margin-top: 8px;
+    margin-left: 20px;
+    font-size: 0.9rem;
+    color: #4b5563;
+}
+
+.schedule-list li {
+    margin-bottom: 4px;
+}
+
 /* フッター */
 .footer {
     text-align: center;
