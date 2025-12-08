@@ -106,13 +106,13 @@ $notifications = getRecentNotifications(10);
             <h2>📊 現在の日経平均株価</h2>
             <?php if ($currentPriceData && isset($currentPriceData['close'])): ?>
                 <div class="current-price">
-                    <div class="price-value">¥<?php echo floor($currentPriceData['close'], 2); ?></div>
+                    <div class="price-value">¥<?php echo number_format($currentPriceData['close'], 2); ?></div>
                     <?php if ($currentPriceData['change'] !== null): ?>
                         <div class="price-change <?php echo $currentPriceData['change'] >= 0 ? 'positive' : 'negative'; ?>">
                             <?php echo $currentPriceData['change'] >= 0 ? '+' : ''; ?>
-                            <?php echo floor($currentPriceData['change'], 2); ?>
+                            <?php echo number_format($currentPriceData['change'], 2); ?>
                             <?php if ($currentPriceData['change_percent'] !== null): ?>
-                                (<?php echo floor($currentPriceData['change_percent'], 2); ?>%)
+                                (<?php echo number_format($currentPriceData['change_percent'], 2); ?>%)
                             <?php endif; ?>
                         </div>
                     <?php endif; ?>
@@ -154,7 +154,7 @@ $notifications = getRecentNotifications(10);
                 <div class="form-group">
                     <label for="base_price">基準価格 (円)</label>
                     <input type="number" id="base_price" name="base_price" 
-                           value="<?php echo floor($settings['base_price']); ?>" 
+                           value="<?php echo number_format($settings['base_price'], 0, '', ''); ?>" 
                            step="1" required>
                     <small>基準となる価格を設定します</small>
                 </div>
@@ -162,7 +162,7 @@ $notifications = getRecentNotifications(10);
                 <div class="form-group">
                     <label for="buy_signal_price">買いシグナル価格 (円)</label>
                     <input type="number" id="buy_signal_price" name="buy_signal_price" 
-                           value="<?php echo floor($settings['buy_signal_price']); ?>" 
+                           value="<?php echo number_format($settings['buy_signal_price'], 0, '', ''); ?>" 
                            step="1" required>
                     <small>この価格を下回ったら買いシグナルを通知</small>
                 </div>
@@ -170,7 +170,7 @@ $notifications = getRecentNotifications(10);
                 <div class="form-group">
                     <label for="sell_signal_price">売りシグナル価格 (円)</label>
                     <input type="number" id="sell_signal_price" name="sell_signal_price" 
-                           value="<?php echo floor($settings['sell_signal_price']); ?>" 
+                           value="<?php echo number_format($settings['sell_signal_price'], 0, '', ''); ?>" 
                            step="1" required>
                     <small>この価格を上回ったら売りシグナルを通知</small>
                 </div>
@@ -226,8 +226,8 @@ $notifications = getRecentNotifications(10);
                                         ?>
                                     </span>
                                 </td>
-                                <td>¥<?php echo floor($notification['current_price'], 0); ?></td>
-                                <td>¥<?php echo floor($notification['trigger_price'], 0); ?></td>
+                                <td>¥<?php echo number_format($notification['current_price'], 0); ?></td>
+                                <td>¥<?php echo number_format($notification['trigger_price'], 0); ?></td>
                                 <td>
                                     <?php if ($notification['slack_sent']): ?>
                                         <span class="status-success">✅ 送信済</span>
@@ -265,14 +265,14 @@ $notifications = getRecentNotifications(10);
                             <?php foreach ($priceHistory as $history): ?>
                             <tr>
                                 <td><?php echo date('Y/m/d', strtotime($history['date'])); ?></td>
-                                <td>¥<?php echo floor($history['close'], 0); ?></td>
-                                <td>¥<?php echo floor($history['open'] ?? 0, 0); ?></td>
-                                <td>¥<?php echo floor($history['high'] ?? 0, 0); ?></td>
-                                <td>¥<?php echo floor($history['low'] ?? 0, 0); ?></td>
+                                <td>¥<?php echo number_format(floor($history['close']), 0); ?></td>
+                                <td>¥<?php echo number_format(floor($history['open'] ?? 0), 0); ?></td>
+                                <td>¥<?php echo number_format(floor($history['high'] ?? 0), 0); ?></td>
+                                <td>¥<?php echo number_format(floor($history['low'] ?? 0), 0); ?></td>
                                 <td class="<?php echo ($history['price_change_rate'] ?? 0) >= 0 ? 'positive' : 'negative'; ?>">
                                     <?php if ($history['price_change_rate'] !== null): ?>
                                         <?php echo ($history['price_change_rate'] >= 0 ? '+' : ''); ?>
-                                        <?php echo floor($history['price_change_rate'] * 100, 2); ?>%
+                                        <?php echo number_format($history['price_change_rate'] * 100, 2); ?>%
                                     <?php else: ?>
                                         -
                                     <?php endif; ?>
