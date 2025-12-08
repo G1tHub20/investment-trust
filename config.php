@@ -191,18 +191,25 @@ function getRecentPriceHistory($limit = 30) {
 }
 
 /**
- * 前日の終値を取得（保存前に呼び出すこと）
+ * 指定日の前日の終値を取得
+ * @param string|null $currentDate 現在の取引日（Y-m-d形式）
  * @return float|null
  */
-function getYesterdayClose() {
+function getYesterdayClose($currentDate = null) {
     $pdo = getDbConnection();
-    // 最新のレコード（前日のデータ）を取得
-    $stmt = $pdo->query('
-        SELECT close 
-        FROM price_history 
-        ORDER BY date DESC 
-        LIMIT 1
-    ');
+    
+    if ($currentDate) {
+        // 指定日より前の最新レコードを取得
+        $stmt = $pdo->prepare('
+            SELECT close 
+            FROM price_history 
+            WHERE date < :current_date
+            ORDER BY date DESC 
+            LIMIT 1
+        ');
+        $stmt->execute([':current_date' => $currentDate]);
+    }
+    
     $result = $stmt->fetch();
     return $result ? $result['close'] : null;
 }
