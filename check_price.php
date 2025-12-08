@@ -51,10 +51,10 @@ function main($skipSignal = false) {
             logMessage("取引日: " . $priceDate);
         }
         
-        // 前日の終値を取得（保存する前に取得）
-        $yesterdayClose = getYesterdayClose();
+        // 前日の終値を取得（スクレイピングで取得した日付より前のデータ）
+        $yesterdayClose = getYesterdayClose($priceDate);
         
-        // 変動率を計算: (today.close - yesterday.close) / yesterday.close
+        // 変動率を計算: (当日の終値 - 前日の終値​) / 前日の終値​
         $priceChangeRate = null;
         if ($yesterdayClose && $yesterdayClose > 0) {
             $priceChangeRate = ($currentClose - $yesterdayClose) / $yesterdayClose;
