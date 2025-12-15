@@ -154,7 +154,7 @@ $notifications = getRecentNotifications(10);
                 <div class="form-group">
                     <label for="base_price">基準価格 (円)</label>
                     <input type="number" id="base_price" name="base_price" 
-                           value="<?php echo floor($settings['base_price']); ?>" 
+                           value="<?php echo number_format($settings['base_price'], 0, '', ''); ?>" 
                            step="1" required>
                     <small>基準となる価格を設定します</small>
                 </div>
@@ -162,7 +162,7 @@ $notifications = getRecentNotifications(10);
                 <div class="form-group">
                     <label for="buy_signal_price">買いシグナル価格 (円)</label>
                     <input type="number" id="buy_signal_price" name="buy_signal_price" 
-                           value="<?php echo floor($settings['buy_signal_price']); ?>" 
+                           value="<?php echo number_format($settings['buy_signal_price'], 0, '', ''); ?>" 
                            step="1" required>
                     <small>この価格を下回ったら買いシグナルを通知</small>
                 </div>
@@ -170,7 +170,7 @@ $notifications = getRecentNotifications(10);
                 <div class="form-group">
                     <label for="sell_signal_price">売りシグナル価格 (円)</label>
                     <input type="number" id="sell_signal_price" name="sell_signal_price" 
-                           value="<?php echo floor($settings['sell_signal_price']); ?>" 
+                           value="<?php echo number_format($settings['sell_signal_price'], 0, '', ''); ?>" 
                            step="1" required>
                     <small>この価格を上回ったら売りシグナルを通知</small>
                 </div>
