@@ -275,5 +275,9 @@ if (php_sapi_name() === 'cli') {
     $skipSignal = ($argv[1] ?? '') === '--no-signal';
     $result = main($skipSignal);
     exit($result ? 0 : 1);
+} else {
+    // Webブラウザから操作した場合
+    main(false);
+    header('Location: index.php');
+    exit;
 }
-

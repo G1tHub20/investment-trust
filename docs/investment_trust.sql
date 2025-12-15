@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- ホスト: localhost:3308
--- 生成日時: 2025-12-06 12:22:22
+-- 生成日時: 2025-12-16 08:12:37
 -- サーバのバージョン： 10.4.28-MariaDB
 -- PHP のバージョン: 8.2.24
 
@@ -51,8 +51,8 @@ CREATE TABLE `price_history` (
   `high` decimal(10,2) NOT NULL COMMENT '高値',
   `low` decimal(10,2) NOT NULL COMMENT '低値',
   `price_change_rate` decimal(5,4) DEFAULT NULL COMMENT '前日比',
-  `updated_at` timestamp NULL DEFAULT current_timestamp(),
-  `created_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
